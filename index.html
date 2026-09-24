@@ -31,7 +31,8 @@
 
     <style>
         body {
-            background: radial-gradient(circle at center, #2d1b4e 0%, #0a0410 100%);
+            /* Darker mystery background */
+            background: radial-gradient(circle at center, #17072b 0%, #05010a 100%);
             color: #f3e5ab;
             min-height: 100vh;
             overflow-x: hidden;
@@ -51,13 +52,28 @@
                 radial-gradient(2px 2px at 160px 120px, #ffffff, rgba(0,0,0,0));
             background-repeat: repeat;
             background-size: 200px 200px;
-            opacity: 0.3;
-            animation: twinkle 5s infinite alternate;
+            opacity: 0.2;
+            animation: twinkle 6s infinite alternate;
         }
 
         @keyframes twinkle {
-            0% { opacity: 0.1; }
-            100% { opacity: 0.4; }
+            0% { opacity: 0.05; }
+            100% { opacity: 0.3; }
+        }
+
+        /* Candle Flame Animation */
+        @keyframes flicker {
+            0% { transform: scale(1) rotate(-2deg); opacity: 0.9; }
+            50% { transform: scale(1.1) rotate(2deg); opacity: 1; }
+            100% { transform: scale(0.95) rotate(0deg); opacity: 0.8; }
+        }
+        .flame-anim {
+            animation: flicker 0.4s infinite alternate;
+            transform-origin: bottom center;
+        }
+        .flame-anim-slow {
+            animation: flicker 0.6s infinite alternate-reverse;
+            transform-origin: bottom center;
         }
 
         /* 3D Card Flip CSS */
@@ -69,14 +85,14 @@
             text-align: center;
             transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             transform-style: preserve-3d;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.7);
             border-radius: 0.75rem;
         }
         
         .card-container.flipped .card-inner { transform: rotateY(180deg); }
         
         .card-front, .card-back {
-            position: absolute; width: 100%; height: 100%;
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
             backface-visibility: hidden; border-radius: 0.75rem;
             border: 2px solid #d4af37;
         }
@@ -106,6 +122,7 @@
         }
         
         .card-container.reversed-card .card-content-wrapper { transform: rotateZ(180deg); }
+        .card-container.reversed-card img { transform: rotateZ(180deg); }
 
         .btn-mystic {
             background: linear-gradient(45deg, #432c7a, #1a0b2e);
@@ -127,7 +144,7 @@
         
         .hidden-view { display: none !important; }
 
-        /* Fanned Deck Styles */
+        /* Fanned Deck Styles - FIXED HOVER ANIMATION */
         .spread-container {
             position: relative;
             height: 200px; width: 100%; max-width: 800px;
@@ -138,17 +155,21 @@
             position: absolute;
             width: 70px; height: 110px;
             transform-origin: bottom center;
-            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s, opacity 0.4s;
             cursor: pointer;
             box-shadow: -2px 0px 10px rgba(0,0,0,0.5);
         }
+        
+        /* The secret to keeping the arc while hovering is to add translation on top of the existing transform variables */
         .spread-card:hover {
-            transform: translateY(-30px) scale(1.15) !important;
             z-index: 100 !important;
-            box-shadow: 0px 15px 25px rgba(212, 175, 55, 0.4);
+            box-shadow: 0px 15px 25px rgba(212, 175, 55, 0.6);
+            /* Important: This transform will be set via JS using the element's custom properties */
         }
+        
+        /* When card is drawn, it goes DOWN into the slots */
         .spread-card.drawn {
-            opacity: 0; pointer-events: none; transform: translateY(-100px) scale(0.5) !important;
+            opacity: 0; pointer-events: none; transform: translateY(100px) scale(0.5) !important;
         }
 
         /* Shuffle Animation */
@@ -156,6 +177,26 @@
             transform: translate(0, 0) rotate(0deg) !important;
             opacity: 0.8;
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            background-color: rgba(10, 4, 16, 0.85);
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: linear-gradient(135deg, #1a0b2e 0%, #2d1b4e 100%);
+            border: 1px solid #d4af37;
+            box-shadow: 0 10px 40px rgba(212, 175, 55, 0.2);
+        }
+
+        /* AI Typing Animation */
+        .typing-indicator span {
+            display: inline-block; width: 6px; height: 6px; background-color: #d4af37;
+            border-radius: 50%; margin: 0 2px; animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
         /* Custom Scrollbar for Gallery */
         ::-webkit-scrollbar { width: 8px; }
@@ -174,10 +215,118 @@
 <body class="relative font-serif antialiased selection:bg-mystic-gold selection:text-mystic-900">
     <div class="stars"></div>
 
+    <!-- Live Candle Left -->
+    <div class="fixed bottom-10 left-5 sm:left-10 z-0 opacity-70 scale-75 sm:scale-100 pointer-events-none">
+        <div class="w-10 h-24 bg-gradient-to-b from-[#ffedc2] to-[#b38612] rounded-md relative shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] border border-[#8a6a1c]">
+            <!-- Flame -->
+            <div class="absolute -top-7 left-1/2 -ml-2 w-4 h-9 bg-[#ff9d00] rounded-[50%_50%_20%_20%] shadow-[0_0_25px_#ff9d00,0_0_40px_#ffedc2] flame-anim"></div>
+            <!-- Wax details -->
+            <div class="absolute top-0 left-1 w-2 h-7 bg-[#ffedc2] rounded-full opacity-60"></div>
+            <div class="absolute top-0 right-2 w-1.5 h-4 bg-[#ffedc2] rounded-full opacity-60"></div>
+        </div>
+    </div>
+
+    <!-- Live Candle Right -->
+    <div class="fixed bottom-16 right-5 sm:right-10 z-0 opacity-70 scale-75 sm:scale-100 pointer-events-none">
+        <div class="w-12 h-32 bg-gradient-to-b from-[#ffedc2] to-[#b38612] rounded-md relative shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] border border-[#8a6a1c]">
+            <!-- Flame -->
+            <div class="absolute -top-8 left-1/2 -ml-2.5 w-5 h-10 bg-[#ff9d00] rounded-[50%_50%_20%_20%] shadow-[0_0_30px_#ff9d00,0_0_50px_#ffedc2] flame-anim-slow"></div>
+            <!-- Wax details -->
+            <div class="absolute top-0 left-2 w-2.5 h-9 bg-[#ffedc2] rounded-full opacity-60"></div>
+            <div class="absolute top-0 right-1 w-2 h-6 bg-[#ffedc2] rounded-full opacity-60"></div>
+        </div>
+    </div>
+
+    <!-- Hamburger Menu Button -->
+    <div class="absolute top-4 left-4 z-50">
+        <button onclick="toggleMenu()" class="text-mystic-gold bg-mystic-900 border border-mystic-gold p-2 rounded-lg shadow-lg hover:bg-mystic-700 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Sidebar Menu Overlay -->
+    <div id="menu-overlay" onclick="toggleMenu()" class="fixed inset-0 bg-black/70 z-[90] hidden transition-opacity duration-300 opacity-0"></div>
+
+    <!-- Slide-out Drawer -->
+    <div id="side-drawer" class="fixed top-0 left-0 h-full w-72 sm:w-80 bg-mystic-900 border-r border-mystic-700 z-[100] transform -translate-x-full transition-transform duration-300 overflow-y-auto flex flex-col shadow-2xl font-sans">
+        <div class="p-6 border-b border-mystic-700 flex justify-between items-center bg-mystic-800">
+            <h2 id="ui-connect" class="text-xl font-display text-mystic-gold font-bold tracking-wide">Connect With Me</h2>
+            <button onclick="toggleMenu()" class="text-gray-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Social Links Container -->
+        <div class="p-5 flex-grow flex flex-col gap-4 text-gray-300">
+            
+            <!-- X (Twitter) -->
+            <a href="https://x.com/raj_baria" target="_blank" class="flex items-center gap-4 p-3 rounded-xl hover:bg-mystic-700/50 transition-all border border-transparent hover:border-mystic-700 group">
+                <div class="w-10 h-10 rounded-full bg-black flex items-center justify-center group-hover:scale-110 transition-transform shadow-md border border-gray-700">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </div>
+                <div class="flex flex-col"><span class="text-sm text-gray-400">X</span><span class="font-bold text-white">@raj_baria</span></div>
+            </a>
+            
+            <!-- Instagram -->
+            <a href="https://www.instagram.com/rajsbaria/" target="_blank" class="flex items-center gap-4 p-3 rounded-xl hover:bg-mystic-700/50 transition-all border border-transparent hover:border-mystic-700 group">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                </div>
+                <div class="flex flex-col"><span class="text-sm text-gray-400">Instagram</span><span class="font-bold text-white">rajsbaria</span></div>
+            </a>
+            
+            <!-- Facebook -->
+            <a href="https://www.facebook.com/share/1EK5jqWrK9/" target="_blank" class="flex items-center gap-4 p-3 rounded-xl hover:bg-mystic-700/50 transition-all border border-transparent hover:border-mystic-700 group">
+                <div class="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/></svg>
+                </div>
+                <div class="flex flex-col"><span class="text-sm text-gray-400">Facebook</span><span class="font-bold text-white">Profile</span></div>
+            </a>
+            
+            <!-- WhatsApp -->
+            <a href="https://wa.me/916352840795" target="_blank" class="flex items-center gap-4 p-3 rounded-xl hover:bg-mystic-700/50 transition-all border border-transparent hover:border-mystic-700 group">
+                <div class="w-10 h-10 rounded-full bg-[#25D366] flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.88-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.347-.272.297-1.04 1.016-1.04 2.479 0 1.463 1.065 2.876 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                </div>
+                <div class="flex flex-col"><span class="text-sm text-gray-400">WhatsApp</span><span class="font-bold text-white">+91 63528 40795</span></div>
+            </a>
+            
+            <!-- Email -->
+            <a href="mailto:rk3171998@gmail.com" class="flex items-center gap-4 p-3 rounded-xl hover:bg-mystic-700/50 transition-all border border-transparent hover:border-mystic-700 group">
+                <div class="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-md">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                </div>
+                <div class="flex flex-col"><span class="text-sm text-gray-400">Email</span><span class="font-bold text-white text-xs sm:text-sm">rk3171998@gmail.com</span></div>
+            </a>
+            
+            <div class="border-t border-mystic-700/50 my-2"></div>
+            
+            <!-- Website & More Apps -->
+            <a href="https://rajbaria.github.io/my-downloads/" target="_blank" class="flex flex-col gap-1 p-4 rounded-xl hover:bg-mystic-700/80 transition-all border border-mystic-gold/30 hover:border-mystic-gold bg-mystic-800 shadow-lg group">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-mystic-900 border border-mystic-gold flex items-center justify-center group-hover:rotate-12 transition-transform">
+                        <svg class="w-4 h-4 text-mystic-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                    </div>
+                    <span class="font-bold text-mystic-lightGold text-lg">My Website</span>
+                </div>
+                <span id="ui-moreApps" class="text-sm text-mystic-gold/80 italic ml-11 mt-1">Click here to see more such apps</span>
+            </a>
+            
+        </div>
+        <div class="p-4 text-center text-xs text-gray-500 border-t border-mystic-700/50">
+            &copy; <span id="current-year"></span> Raj Baria
+        </div>
+    </div>
+
+    <!-- Language Selector Defaults to English -->
     <div class="absolute top-4 right-4 z-50 flex gap-4 items-center">
         <select id="lang-select" onchange="changeLanguage(this.value)" class="bg-mystic-900 border border-mystic-gold text-mystic-lightGold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-mystic-gold font-sans shadow-lg cursor-pointer">
-            <option value="gu" selected>ગુજરાતી</option>
-            <option value="en">English</option>
+            <option value="en" selected>English</option>
+            <option value="gu">ગુજરાતી</option>
             <option value="hi">हिन्दी</option>
             <option value="es">Español</option>
             <option value="fr">Français</option>
@@ -188,45 +337,69 @@
         
         <header class="text-center mb-8 fade-in">
             <h1 id="ui-title" class="font-display text-4xl md:text-5xl text-mystic-gold mb-2 tracking-wider drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]">
-                રહસ્યમય ટેરોટ
+                Mystic Tarot
             </h1>
-            <p id="ui-subtitle" class="text-lg text-mystic-lightGold opacity-80 italic">કાર્ડ્સનું ડહાપણ શોધો...</p>
+            <p id="ui-subtitle" class="text-lg text-mystic-lightGold opacity-80 italic">Seek the wisdom of the cards...</p>
         </header>
 
         <main id="menu-view" class="w-full max-w-2xl text-center fade-in flex-grow flex flex-col justify-center pb-20">
             <div class="bg-mystic-900/60 p-8 rounded-2xl border border-mystic-700 backdrop-blur-sm shadow-2xl">
-                <h2 id="ui-chooseReading" class="text-2xl font-display text-mystic-gold mb-6">તમારું રીડિંગ પસંદ કરો</h2>
-                <p id="ui-menuDesc" class="mb-8 text-gray-300">તમારા પ્રશ્ન અથવા વર્તમાન પરિસ્થિતિ પર ધ્યાન કેન્દ્રિત કરો, અને શરૂ કરવા માટે વિકલ્પ પસંદ કરો.</p>
+                <h2 id="ui-chooseReading" class="text-2xl font-display text-mystic-gold mb-6">Choose Your Reading</h2>
+                <p id="ui-menuDesc" class="mb-8 text-gray-300">Concentrate on your question or current situation, then select a spread to begin.</p>
                 
                 <div class="flex flex-col sm:flex-row justify-center gap-4 mb-6">
                     <button onclick="startGame(1)" class="btn-mystic px-6 py-4 rounded-xl font-bold flex flex-col items-center gap-1 group flex-1">
                         <span class="text-2xl group-hover:scale-110 transition-transform">✨</span>
-                        <span id="ui-dailyDraw">દૈનિક કાર્ડ</span>
-                        <span id="ui-dailyDrawDesc" class="text-xs font-normal opacity-70">1 કાર્ડ (ઝડપી સમજ)</span>
+                        <span id="ui-dailyDraw">Daily Draw</span>
+                        <span id="ui-dailyDrawDesc" class="text-xs font-normal opacity-70">1 Card (Quick Insight)</span>
                     </button>
                     <button onclick="startGame(3)" class="btn-mystic px-6 py-4 rounded-xl font-bold flex flex-col items-center gap-1 group flex-1">
                         <span class="text-2xl group-hover:scale-110 transition-transform">🔮</span>
-                        <span id="ui-pastPresentFuture">ભૂત, વર્તમાન, ભવિષ્ય</span>
-                        <span id="ui-ppfDesc" class="text-xs font-normal opacity-70">3 કાર્ડ (ઊંડાણપૂર્વક)</span>
+                        <span id="ui-pastPresentFuture">Past, Present, Future</span>
+                        <span id="ui-ppfDesc" class="text-xs font-normal opacity-70">3 Cards (In-depth)</span>
                     </button>
                 </div>
                 
                 <div class="border-t border-mystic-700/50 pt-6">
                     <button onclick="openGallery()" class="text-mystic-gold hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-lg border border-transparent hover:border-mystic-gold/50">
                         <span class="text-xl">🎴</span>
-                        <span id="ui-viewCards">કાર્ડ્સ જુઓ (ગેલેરી)</span>
+                        <span id="ui-viewCards">View Cards (Gallery)</span>
                     </button>
                 </div>
+                
+                <!-- New Guide Section -->
+                <div class="border-t border-mystic-700/50 pt-6 mt-6">
+                    <h3 id="ui-learnTarot" class="text-lg font-display text-mystic-gold mb-4 opacity-80 uppercase tracking-widest">Learn About Tarot</h3>
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                        <button onclick="openGuide('history')" class="bg-mystic-800/80 hover:bg-mystic-700 border border-mystic-700 hover:border-mystic-gold p-3 rounded-lg text-sm text-gray-300 transition-all flex flex-col items-center gap-2">
+                            <span class="text-xl">📜</span>
+                            <span id="ui-btnHistory">History</span>
+                        </button>
+                        <button onclick="openGuide('howItWorks')" class="bg-mystic-800/80 hover:bg-mystic-700 border border-mystic-700 hover:border-mystic-gold p-3 rounded-lg text-sm text-gray-300 transition-all flex flex-col items-center gap-2">
+                            <span class="text-xl">⚙️</span>
+                            <span id="ui-btnHowItWorks">How it Works</span>
+                        </button>
+                        <button onclick="openGuide('uprightReversed')" class="bg-mystic-800/80 hover:bg-mystic-700 border border-mystic-700 hover:border-mystic-gold p-3 rounded-lg text-sm text-gray-300 transition-all flex flex-col items-center gap-2">
+                            <span class="text-xl">↕️</span>
+                            <span id="ui-btnUprightReversed">Upright & Reversed</span>
+                        </button>
+                        <button onclick="openGuide('uses')" class="bg-mystic-800/80 hover:bg-mystic-700 border border-mystic-700 hover:border-mystic-gold p-3 rounded-lg text-sm text-gray-300 transition-all flex flex-col items-center gap-2">
+                            <span class="text-xl">🧭</span>
+                            <span id="ui-btnUses">Uses of Tarot</span>
+                        </button>
+                    </div>
+                </div>
+
             </div>
         </main>
 
         <main id="gallery-view" class="w-full max-w-6xl hidden-view flex-grow flex flex-col items-center pb-10">
             <div class="w-full flex justify-between items-center mb-8 px-4">
-                <h2 id="ui-galleryTitle" class="text-3xl font-display text-mystic-gold">ટેરોટ ગેલેરી</h2>
-                <button onclick="closeGallery()" class="btn-mystic px-4 py-2 rounded-lg text-sm" id="ui-backToMenu1">મુખ્ય મેનુ</button>
+                <h2 id="ui-galleryTitle" class="text-3xl font-display text-mystic-gold">Tarot Gallery</h2>
+                <button onclick="closeGallery()" class="btn-mystic px-4 py-2 rounded-lg text-sm" id="ui-backToMenu1">Back to Menu</button>
             </div>
             
-            <div id="gallery-grid" class="gallery-grid w-full pb-10">
+            <div id="gallery-grid" class="gallery-grid w-full pb-10 px-4">
                 <!-- Gallery cards injected via JS -->
             </div>
         </main>
@@ -235,42 +408,64 @@
             
             <div class="w-full flex justify-end mb-2 px-4">
                 <button onclick="resetGame()" class="text-mystic-gold opacity-70 hover:opacity-100 text-sm flex items-center gap-1 transition-opacity">
-                    <span id="ui-backToMenu2">મુખ્ય મેનુ પર પાછા ફરો</span> ↩
+                    <span id="ui-backToMenu2">Back to Menu</span> ↩
                 </button>
             </div>
 
             <div class="text-center mb-6 h-8 flex flex-col items-center justify-center w-full">
-                <p id="instruction-text" class="text-xl text-mystic-lightGold animate-pulse">નીચેના ડેકમાંથી કાર્ડ ખેંચો.</p>
+                <p id="instruction-text" class="text-xl text-mystic-lightGold animate-pulse">Select cards from the deck below.</p>
             </div>
 
             <!-- Action Buttons for Deck -->
             <div class="flex gap-4 mb-4 z-30" id="deck-actions">
-                <button onclick="shuffleDeckAnimation()" class="btn-mystic px-5 py-2 rounded-full text-sm flex items-center gap-2">
-                    <span>🌪️</span> <span id="ui-shuffleBtn">ડેકને પીસો (Shuffle)</span>
+                <button onclick="shuffleDeckAnimation()" class="btn-mystic px-5 py-2 rounded-full text-sm flex items-center gap-2 shadow-lg">
+                    <span>🌪️</span> <span id="ui-shuffleBtn">Shuffle Deck</span>
                 </button>
             </div>
 
             <!-- Fanned Spread Deck Area -->
             <div class="relative w-full mb-16 mt-4">
                 <div id="spread-container" class="spread-container">
-                    <!-- 22 Cards generated via JS -->
+                    <!-- Cards generated via JS -->
                 </div>
             </div>
 
-            <!-- Card Slots (Where drawn cards land) -->
+            <!-- Card Slots (Where drawn cards land) - INCREASED SIZE -->
             <div id="slots-container" class="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 w-full mb-12">
                 <!-- Slots injected via JS -->
             </div>
 
             <!-- Reading Results -->
-            <div id="results-container" class="w-full max-w-4xl bg-mystic-900/80 p-6 sm:p-10 rounded-2xl border border-mystic-700 backdrop-blur-md shadow-2xl hidden-view">
-                <h3 id="ui-yourReading" class="text-3xl font-display text-mystic-gold mb-8 text-center border-b border-mystic-700 pb-4">તમારું રીડિંગ</h3>
+            <div id="results-container" class="w-full max-w-4xl bg-mystic-900/80 p-6 sm:p-10 rounded-2xl border border-mystic-700 backdrop-blur-md shadow-2xl hidden-view flex flex-col">
+                <h3 id="ui-yourReading" class="text-3xl font-display text-mystic-gold mb-8 text-center border-b border-mystic-700 pb-4">Your Reading</h3>
                 <div id="meanings-list" class="space-y-8">
                     <!-- Meanings injected via JS -->
                 </div>
+                
+                <!-- Gemini AI Integration Section -->
+                <div id="ai-section" class="mt-10 border-t border-mystic-700 pt-8 flex flex-col items-center">
+                    <button id="btn-get-ai" onclick="getAIReading()" class="bg-gradient-to-r from-purple-800 to-indigo-900 hover:from-purple-700 hover:to-indigo-800 text-white font-bold py-3 px-8 rounded-full shadow-[0_0_20px_rgba(139,92,246,0.5)] border border-purple-500 transition-all transform hover:scale-105 flex items-center gap-3">
+                        <span class="text-2xl">✨</span> 
+                        <span id="ui-btnAi">Get Deep AI Reading</span>
+                    </button>
+                    
+                    <div id="ai-loading" class="hidden-view mt-6 flex flex-col items-center text-mystic-gold">
+                        <div class="typing-indicator mb-2"><span></span><span></span><span></span></div>
+                        <p id="ui-aiThinking" class="text-sm italic opacity-80">The cosmos is analyzing your cards...</p>
+                    </div>
+
+                    <div id="ai-result-box" class="hidden-view mt-8 bg-mystic-900/90 border border-purple-500/50 rounded-xl p-6 w-full shadow-lg relative">
+                        <div class="absolute -top-3 -left-3 text-3xl">🔮</div>
+                        <h4 id="ui-aiTitle" class="text-xl font-display text-mystic-lightGold mb-4 border-b border-mystic-700/50 pb-2">Cosmic Insight</h4>
+                        <div id="ai-response-content" class="text-gray-200 text-sm sm:text-base leading-relaxed space-y-4">
+                            <!-- AI Text goes here -->
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-10 flex justify-center gap-4">
-                    <button onclick="resetGame()" class="btn-mystic px-8 py-3 rounded-full font-bold" id="ui-newReading">
-                        નવું રીડિંગ
+                    <button onclick="resetGame()" class="btn-mystic px-8 py-3 rounded-full font-bold shadow-[0_0_15px_rgba(212,175,55,0.4)]" id="ui-newReading">
+                        New Reading
                     </button>
                 </div>
             </div>
@@ -278,12 +473,28 @@
         </main>
         
         <footer class="w-full text-center py-4 mt-auto opacity-60 text-xs sm:text-sm">
-            <p id="ui-footer">માત્ર મનોરંજન માટે. જાદુને તમને માર્ગદર્શન આપવા દો.</p>
+            <p id="ui-footer">For entertainment purposes only. Let the magic guide you.</p>
         </footer>
     </div>
 
+    <!-- Guide Modal -->
+    <div id="guide-modal" class="fixed inset-0 z-[150] hidden-view modal-overlay flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="modal-content w-full max-w-lg rounded-2xl p-6 sm:p-8 relative transform scale-95 transition-transform duration-300">
+            <button onclick="closeGuide()" class="absolute top-4 right-4 text-mystic-gold hover:text-white transition-colors bg-mystic-900 rounded-full w-8 h-8 flex items-center justify-center border border-mystic-700">
+                ✕
+            </button>
+            <div class="flex items-center gap-4 mb-4 border-b border-mystic-700 pb-4">
+                <span id="guide-icon" class="text-4xl drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]"></span>
+                <h2 id="guide-title" class="text-2xl font-display font-bold text-mystic-gold tracking-wide"></h2>
+            </div>
+            <div id="guide-body" class="text-gray-300 space-y-4 leading-relaxed text-sm sm:text-base max-h-[60vh] overflow-y-auto pr-2">
+                <!-- Content injected via JS -->
+            </div>
+        </div>
+    </div>
+
     <script>
-        let currentLang = 'gu';
+        let currentLang = 'en';
 
         const uiStrings = {
             en: {
@@ -298,7 +509,11 @@
                 footer: "For entertainment purposes only. Let the magic guide you.",
                 upright: "(Upright)", reversed: "(Reversed)", keyMeaning: "Key Meaning:",
                 posPast: "Past", posPresent: "Present", posFuture: "Future", posInsight: "Insight",
-                meaningUp: "Upright:", meaningRev: "Reversed:"
+                meaningUp: "Upright:", meaningRev: "Reversed:",
+                connect: "Connect With Me", moreApps: "Click here to see more such apps",
+                learnTarot: "Learn About Tarot", btnHistory: "History of Tarot", btnHowItWorks: "How It Works",
+                btnUprightReversed: "Upright & Reversed", btnUses: "Uses of Tarot",
+                btnAi: "Get Deep AI Reading", aiThinking: "The cosmos is analyzing your cards...", aiTitle: "Cosmic Insight"
             },
             gu: {
                 title: "રહસ્યમય ટેરોટ", subtitle: "કાર્ડ્સનું ડહાપણ શોધો...", chooseReading: "તમારું રીડિંગ પસંદ કરો",
@@ -312,7 +527,11 @@
                 footer: "માત્ર મનોરંજન માટે. જાદુને તમને માર્ગદર્શન આપવા દો.",
                 upright: "(સીધું)", reversed: "(ઊલટું)", keyMeaning: "મુખ્ય અર્થ:",
                 posPast: "ભૂતકાળ", posPresent: "વર્તમાન", posFuture: "ભવિષ્ય", posInsight: "સમજ",
-                meaningUp: "સીધો અર્થ:", meaningRev: "ઊલટો અર્થ:"
+                meaningUp: "સીધો અર્થ:", meaningRev: "ઊલટો અર્થ:",
+                connect: "મારો સંપર્ક કરો", moreApps: "આવી બીજી એપ્સ જોવા ક્લિક કરો",
+                learnTarot: "ટેરોટ વિશે જાણો", btnHistory: "ટેરોટનો ઈતિહાસ", btnHowItWorks: "કેવી રીતે કામ કરે છે?",
+                btnUprightReversed: "સીધું અને ઊલટું", btnUses: "ટેરોટના ઉપયોગો",
+                btnAi: "✨ AI દ્વારા ઊંડાણપૂર્વક જાણો", aiThinking: "AI તમારા કાર્ડ્સનો અભ્યાસ કરી રહ્યું છે...", aiTitle: "આંતરિક માર્ગદર્શન (AI Reading)"
             },
             hi: {
                 title: "रहस्यमय टैरो", subtitle: "कार्ड का ज्ञान खोजें...", chooseReading: "अपनी रीडिंग चुनें",
@@ -326,7 +545,11 @@
                 footer: "केवल मनोरंजन के लिए। जादू को आपका मार्गदर्शन करने दें।",
                 upright: "(सीधा)", reversed: "(उल्टा)", keyMeaning: "मुख्य अर्थ:",
                 posPast: "अतीत", posPresent: "वर्तमान", posFuture: "भविष्य", posInsight: "अंतर्दृष्टि",
-                meaningUp: "सीधा अर्थ:", meaningRev: "उल्टा अर्थ:"
+                meaningUp: "सीधा अर्थ:", meaningRev: "उल्टा अर्थ:",
+                connect: "मुझसे जुड़ें", moreApps: "ऐसी और ऐप्स देखने के लिए क्लिक करें",
+                learnTarot: "टैरो के बारे में जानें", btnHistory: "टैरो का इतिहास", btnHowItWorks: "यह कैसे काम करता है?",
+                btnUprightReversed: "सीधा और उल्टा", btnUses: "टैरो के उपयोग",
+                btnAi: "✨ AI द्वारा गहन विश्लेषण", aiThinking: "AI आपके कार्ड का अध्ययन कर रहा है...", aiTitle: "आंतरिक मार्गदर्शन (AI Reading)"
             },
             es: {
                 title: "Tarot Místico", subtitle: "Busca la sabiduría de las cartas...", chooseReading: "Elige tu Lectura",
@@ -340,7 +563,11 @@
                 footer: "Solo para fines de entretenimiento. Deja que la magia te guíe.",
                 upright: "(Al derecho)", reversed: "(Invertido)", keyMeaning: "Significado clave:",
                 posPast: "Pasado", posPresent: "Presente", posFuture: "Futuro", posInsight: "Visión",
-                meaningUp: "Al derecho:", meaningRev: "Invertido:"
+                meaningUp: "Al derecho:", meaningRev: "Invertido:",
+                connect: "Conéctate conmigo", moreApps: "Haz clic para ver más aplicaciones",
+                learnTarot: "Aprende sobre el Tarot", btnHistory: "Historia del Tarot", btnHowItWorks: "Cómo funciona",
+                btnUprightReversed: "Al derecho y al revés", btnUses: "Usos del Tarot",
+                btnAi: "Lectura profunda con IA", aiThinking: "El cosmos está analizando tus cartas...", aiTitle: "Visión Cósmica"
             },
             fr: {
                 title: "Tarot Mystique", subtitle: "Cherchez la sagesse des cartes...", chooseReading: "Choisissez votre Lecture",
@@ -354,34 +581,73 @@
                 footer: "À des fins de divertissement seulement. Laissez la magie vous guider.",
                 upright: "(À l'endroit)", reversed: "(Inversé)", keyMeaning: "Signification clé :",
                 posPast: "Passé", posPresent: "Présent", posFuture: "Futur", posInsight: "Aperçu",
-                meaningUp: "À l'endroit:", meaningRev: "Inversé:"
+                meaningUp: "À l'endroit:", meaningRev: "Inversé:",
+                connect: "Connecte-toi avec moi", moreApps: "Cliquez pour voir plus d'applications",
+                learnTarot: "En savoir plus sur le Tarot", btnHistory: "Histoire du Tarot", btnHowItWorks: "Comment ça marche",
+                btnUprightReversed: "À l'endroit et Inversé", btnUses: "Utilisations du Tarot",
+                btnAi: "Lecture approfondie par IA", aiThinking: "Le cosmos analyse vos cartes...", aiTitle: "Aperçu Cosmique"
             }
         };
 
-        // Using geometric paths to draw minimalist magical icons
+        const guideContent = {
+            history: {
+                icon: "📜",
+                en: { t: "History of Tarot", d: "<p>Tarot originated in 15th-century Italy as a card game called 'Tarocchini'. By the 18th century, it evolved into a powerful tool for divination and spiritual guidance.</p><br><p>The most popular deck, the <b>Rider-Waite-Smith</b>, was created in 1909. Its rich imagery forms the basis of most modern tarot readings today.</p>" },
+                gu: { t: "ટેરોટનો ઈતિહાસ", d: "<p>ટેરોટની શરૂઆત 15મી સદીમાં ઇટાલીમાં 'ટારોચીની' (Tarocchini) નામની પત્તાની રમત તરીકે થઈ હતી. 18મી સદી સુધીમાં, તે ભવિષ્યવાણી અને આધ્યાત્મિક માર્ગદર્શન માટેનું સાધન બની ગયું.</p><br><p>1909માં બનેલો <b>રાઇડર-વેઇટ-સ્મિથ (Rider-Waite-Smith)</b> ડેક સૌથી લોકપ્રિય છે. તેમાં રહેલા ચિત્રો આધુનિક ટેરોટ રીડિંગનો મુખ્ય પાયો છે.</p>" },
+                hi: { t: "टैरो का इतिहास", d: "<p>टैरो की उत्पत्ति 15वीं सदी के इटली में 'टैरोकिनी' नामक कार्ड गेम के रूप में हुई थी। 18वीं सदी तक, यह अटकलबाजी और आध्यात्मिक मार्गदर्शन का एक उपकरण बन गया।</p><br><p>1909 में बना <b>राइडर-वेट-स्मिथ</b> डेक सबसे लोकप्रिय है। इसकी समृद्ध इमेजरी आज आधुनिक टैरो रीडिंग का आधार है।</p>" },
+                es: { t: "Historia del Tarot", d: "<p>El Tarot se originó en Italia en el siglo XV como un juego llamado Tarocchini. En el siglo XVIII, evolucionó como herramienta de adivinación y guía espiritual.</p><br><p>El mazo más popular, <b>Rider-Waite-Smith</b>, creado en 1909, forma la base de las lecturas modernas.</p>" },
+                fr: { t: "Histoire du Tarot", d: "<p>Le Tarot est né en Italie au 15ème siècle comme un jeu appelé Tarocchini. Au 18ème siècle, il est devenu un outil de divination.</p><br><p>Le jeu le plus populaire, <b>Rider-Waite-Smith</b> (1909), est la base des lectures modernes.</p>" }
+            },
+            howItWorks: {
+                icon: "⚙️",
+                en: { t: "How Tarot Works", d: "<p>Tarot acts as a mirror to your subconscious mind. It does not predict a fixed future, but rather reflects your current path, hidden thoughts, and potential outcomes.</p><br><p>Your intuition connects with the universal symbols and archetypes in the cards to help you find answers within yourself.</p>" },
+                gu: { t: "તે કેવી રીતે કામ કરે છે?", d: "<p>ટેરોટ તમારા અર્ધજાગ્રત મન (Subconscious mind) માટે અરીસાનું કામ કરે છે. તે કોઈ નિશ્ચિત ભવિષ્યની આગાહી કરતું નથી, પરંતુ તમારી વર્તમાન સ્થિતિ, છુપાયેલા વિચારો અને સંભવિત પરિણામો દર્શાવે છે.</p><br><p>કાર્ડ્સમાં રહેલા પ્રતીકો સાથે તમારું અંતર્જ્ઞાન જોડાઈને તમને તમારી અંદરથી જ જવાબો શોધવામાં મદદ કરે છે.</p>" },
+                hi: { t: "यह कैसे काम करता है?", d: "<p>टैरो आपके अवचेतन मन के लिए एक दर्पण का काम करता है। यह एक निश्चित भविष्य की भविष्यवाणी नहीं करता, बल्कि आपके वर्तमान मार्ग, छिपे हुए विचारों और संभावित परिणामों को दर्शाता है।</p><br><p>आपका अंतर्ज्ञान कार्ड के प्रतीकों से जुड़कर आपको अपने भीतर से उत्तर खोजने में मदद करता है।</p>" },
+                es: { t: "Cómo funciona el Tarot", d: "<p>El Tarot actúa como un espejo de tu subconsciente. No predice un futuro fijo, sino que refleja tu camino actual y resultados potenciales.</p><br><p>Tu intuición se conecta con los símbolos de las cartas para ayudarte a encontrar respuestas dentro de ti.</p>" },
+                fr: { t: "Comment fonctionne le Tarot", d: "<p>Le Tarot agit comme un miroir de votre subconscient. Il ne prédit pas un avenir fixe, mais reflète votre chemin actuel.</p><br><p>Votre intuition se connecte aux symboles des cartes pour vous aider à trouver des réponses en vous-même.</p>" }
+            },
+            uprightReversed: {
+                icon: "↕️",
+                en: { t: "Upright vs Reversed", d: "<p><b>Upright (Straight):</b> An upright card expresses its core meaning, energy, and lessons freely and clearly.</p><br><p><b>Reversed (Upside down):</b> A reversed card often indicates blocked energy, an internal struggle, or the shadow side of the card's meaning. It's not always 'bad', just a different perspective or an area needing inner work.</p>" },
+                gu: { t: "સીધું અને ઊલટું કાર્ડ", d: "<p><b>સીધું કાર્ડ (Upright):</b> જ્યારે કાર્ડ સીધું આવે છે, ત્યારે તે તેનો મુખ્ય અર્થ અને સકારાત્મક ઉર્જા મુક્તપણે દર્શાવે છે.</p><br><p><b>ઊલટું કાર્ડ (Reversed):</b> જ્યારે કાર્ડ ઊંધું (ઊલટું) આવે છે, ત્યારે તે અવરોધિત ઉર્જા, આંતરિક સંઘર્ષ અથવા કાર્ડના અર્થની બીજી બાજુ દર્શાવે છે. તે હંમેશા 'ખરાબ' નથી હોતું, પરંતુ તમારા જીવનના એવા પાસાં દર્શાવે છે જ્યાં તમારે કામ કરવાની જરૂર છે.</p>" },
+                hi: { t: "सीधा और उल्टा कार्ड", d: "<p><b>सीधा कार्ड (Upright):</b> यह अपने मुख्य अर्थ और ऊर्जा को स्वतंत्र रूप से व्यक्त करता है।</p><br><p><b>उल्टा कार्ड (Reversed):</b> एक उल्टा कार्ड अक्सर अवरुद्ध ऊर्जा, आंतरिक संघर्ष या कार्ड के अर्थ के छिपे हुए पहलू को इंगित करता है। यह हमेशा 'बुरा' नहीं होता है, बस एक अलग दृष्टिकोण है।</p>" },
+                es: { t: "Al derecho y al revés", d: "<p><b>Al derecho:</b> Expresa su significado central y energía libremente.</p><br><p><b>Invertido:</b> A menudo indica energía bloqueada, un enfoque interno o el lado oscuro del significado. No siempre es malo, solo una perspectiva diferente.</p>" },
+                fr: { t: "À l'endroit et Inversé", d: "<p><b>À l'endroit:</b> Exprime librement son énergie et son sens principal.</p><br><p><b>Inversé:</b> Indique souvent une énergie bloquée ou l'aspect caché de la carte. Ce n'est pas toujours mauvais, juste une perspective différente.</p>" }
+            },
+            uses: {
+                icon: "🧭",
+                en: { t: "Uses of Tarot", d: "<p>Tarot is widely used for self-reflection, meditation, and decision-making.</p><ul class='list-disc pl-5 mt-2 space-y-1'><li><b>Clarity:</b> Provides insight on love, career, and personal growth.</li><li><b>Problem Solving:</b> Helps untangle complex situations.</li><li><b>Empowerment:</b> Encourages you to make mindful and informed choices.</li></ul>" },
+                gu: { t: "ટેરોટના ઉપયોગો", d: "<p>ટેરોટનો ઉપયોગ આત્મનિરીક્ષણ, ધ્યાન અને સાચો નિર્ણય લેવામાં થાય છે.</p><ul class='list-disc pl-5 mt-2 space-y-1'><li><b>સ્પષ્ટતા:</b> પ્રેમ, કારકિર્દી અને વ્યક્તિગત વિકાસ અંગે માર્ગદર્શન આપે છે.</li><li><b>સમસ્યાનો ઉકેલ:</b> મુશ્કેલ અને ગૂંચવાયેલી પરિસ્થિતિઓને ઉકેલવામાં મદદ કરે છે.</li><li><b>સશક્તિકરણ:</b> તમને સમજી-વિચારીને સાચા નિર્ણયો લેવા માટે પ્રેરિત કરે છે.</li></ul>" },
+                hi: { t: "टैरो के उपयोग", d: "<p>टैरो का उपयोग आत्म-चिंतन, ध्यान और निर्णय लेने के लिए किया जाता है।</p><ul class='list-disc pl-5 mt-2 space-y-1'><li><b>स्पष्टता:</b> प्रेम, करियर और व्यक्तिगत विकास पर अंतर्दृष्टि प्रदान करता है।</li><li><b>समस्या समाधान:</b> जटिल स्थितियों को सुलझाने में मदद करता है।</li><li><b>सशक्तिकरण:</b> आपको सचेत विकल्प चुनने में सक्षम बनाता है।</li></ul>" },
+                es: { t: "Usos del Tarot", d: "<p>Se usa para la autorreflexión y la toma de decisiones.</p><ul class='list-disc pl-5 mt-2 space-y-1'><li><b>Claridad:</b> Proporciona información sobre el amor y la carrera.</li><li><b>Resolución:</b> Ayuda a desenredar situaciones complejas.</li><li><b>Empoderamiento:</b> Te anima a tomar decisiones conscientes.</li></ul>" },
+                fr: { t: "Utilisations du Tarot", d: "<p>Utilisé pour l'introspection et la prise de décision.</p><ul class='list-disc pl-5 mt-2 space-y-1'><li><b>Clarté:</b> Fournit des informations sur l'amour et la carrière.</li><li><b>Résolution:</b> Aide à démêler des situations complexes.</li><li><b>Autonomisation:</b> Vous encourage à faire des choix conscients.</li></ul>" }
+            }
+        };
+
+        // Fallback SVGs
         const cardSVGs = {
-            0: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="30" r="10" stroke="currentColor" fill="none" stroke-width="4"/><path d="M50 40 L50 70 M50 50 L30 60 M50 50 L75 40 M50 70 L35 95 M50 70 L65 95 M75 40 L85 30" stroke="currentColor" fill="none" stroke-width="4" stroke-linecap="round"/><circle cx="88" cy="27" r="5" fill="currentColor"/><path d="M20 95 L80 95" stroke="currentColor" stroke-width="3" stroke-dasharray="5 5"/></svg>`, // The Fool
-            1: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 40 C30 20, 70 20, 70 40 C70 60, 30 60, 30 80 C30 100, 70 100, 70 80 C70 60, 30 60, 30 40" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="3"/><polygon points="45,10 55,10 50,0" fill="currentColor"/><polygon points="45,90 55,90 50,100" fill="currentColor"/></svg>`, // The Magician
-            2: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 70 A 25 25 0 1 1 50 20 A 25 25 0 1 0 50 70" fill="currentColor"/><rect x="15" y="10" width="15" height="80" stroke="currentColor" fill="none" stroke-width="4"/><rect x="70" y="10" width="15" height="80" stroke="currentColor" fill="currentColor" stroke-width="4"/></svg>`, // High Priestess
-            3: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="40" r="20" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="60" x2="50" y2="90" stroke="currentColor" stroke-width="5"/><line x1="35" y1="75" x2="65" y2="75" stroke="currentColor" stroke-width="5"/><path d="M10 50 Q 50 0 90 50" stroke="currentColor" fill="none" stroke-width="3" stroke-dasharray="4 4"/></svg>`, // Empress
-            4: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="30" y="40" width="40" height="40" stroke="currentColor" fill="none" stroke-width="5"/><polygon points="30,40 50,15 70,40" stroke="currentColor" fill="none" stroke-width="5"/><line x1="15" y1="80" x2="85" y2="80" stroke="currentColor" stroke-width="5"/><circle cx="50" cy="60" r="8" fill="currentColor"/></svg>`, // Emperor
-            5: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="6"/><line x1="30" y1="30" x2="70" y2="30" stroke="currentColor" stroke-width="6"/><line x1="35" y1="50" x2="65" y2="50" stroke="currentColor" stroke-width="6"/><line x1="40" y1="70" x2="60" y2="70" stroke="currentColor" stroke-width="6"/></svg>`, // Hierophant
-            6: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 85 C50 85, 10 55, 10 30 A20 20 0 0 1 50 30 A20 20 0 0 1 90 30 C90 55, 50 85, 50 85" fill="none" stroke="currentColor" stroke-width="5"/><path d="M50 75 C50 75, 25 50, 25 35 A10 10 0 0 1 50 35 A10 10 0 0 1 75 35 C75 50, 50 75, 50 75" fill="currentColor"/></svg>`, // Lovers
-            7: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="25" y="40" width="50" height="30" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="25" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="75" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="40" x2="50" y2="10" stroke="currentColor" stroke-width="5"/><path d="M30 20 Q50 0 70 20" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, // Chariot
-            8: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 10 C 20 10, 20 50, 50 90 C 80 50, 80 10, 50 10" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="40" r="15" fill="currentColor"/><path d="M20 50 Q 50 20 80 50" stroke="currentColor" fill="none" stroke-width="3"/></svg>`, // Strength
-            9: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M40 20 L60 20 L70 80 L30 80 Z" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="10" fill="currentColor"/><line x1="50" y1="20" x2="50" y2="10" stroke="currentColor" stroke-width="4"/><line x1="50" y1="10" x2="75" y2="10" stroke="currentColor" stroke-width="4"/></svg>`, // Hermit
-            10: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="50" r="40" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="25" stroke="currentColor" fill="none" stroke-width="3"/><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="3"/><line x1="10" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="3"/><line x1="22" y1="22" x2="78" y2="78" stroke="currentColor" stroke-width="3"/><line x1="22" y1="78" x2="78" y2="22" stroke="currentColor" stroke-width="3"/></svg>`, // Wheel
-            11: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="50" y1="20" x2="50" y2="90" stroke="currentColor" stroke-width="6"/><line x1="20" y1="40" x2="80" y2="40" stroke="currentColor" stroke-width="6"/><path d="M20 40 L10 70 L30 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><path d="M80 40 L70 70 L90 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><polygon points="40,20 60,20 50,5" fill="currentColor"/></svg>`, // Justice
-            12: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="20" y1="15" x2="80" y2="15" stroke="currentColor" stroke-width="6"/><line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-dasharray="5 5" stroke-width="3"/><circle cx="50" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="4"/><path d="M35 50 L50 70 L65 50" stroke="currentColor" fill="none" stroke-width="4"/><path d="M40 30 L60 30" stroke="currentColor" stroke-width="4"/></svg>`, // Hanged Man
-            13: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 30 C 30 10, 70 10, 70 30 C 70 50, 60 50, 60 70 L 40 70 C 40 50, 30 50, 30 30 Z" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="40" cy="35" r="5" fill="currentColor"/><circle cx="60" cy="35" r="5" fill="currentColor"/><path d="M45 60 L55 60" stroke="currentColor" stroke-width="4"/></svg>`, // Death (Skull)
-            14: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 30 L50 60 L70 30 Z" stroke="currentColor" fill="none" stroke-width="4"/><path d="M30 70 L50 40 L70 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><circle cx="50" cy="50" r="10" fill="currentColor"/><path d="M50 10 A40 40 0 0 0 10 50" stroke="currentColor" fill="none" stroke-width="3"/><path d="M50 90 A40 40 0 0 0 90 50" stroke="currentColor" fill="none" stroke-width="3"/></svg>`, // Temperance
-            15: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><polygon points="50,80 20,30 80,30" stroke="currentColor" fill="none" stroke-width="5"/><polygon points="50,20 20,70 80,70" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="45" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, // Devil (Pentagram)
-            16: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="35" y="40" width="30" height="50" stroke="currentColor" fill="none" stroke-width="5"/><path d="M30 40 L70 40 L50 25 Z" fill="currentColor"/><path d="M60 10 L45 30 L55 35 L40 60" stroke="currentColor" fill="none" stroke-width="4" stroke-linejoin="miter"/></svg>`, // Tower
-            17: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><polygon points="50,10 60,40 90,50 60,60 50,90 40,60 10,50 40,40" stroke="currentColor" fill="none" stroke-width="4"/><circle cx="50" cy="50" r="8" fill="currentColor"/><circle cx="20" cy="20" r="3" fill="currentColor"/><circle cx="80" cy="80" r="3" fill="currentColor"/><circle cx="80" cy="20" r="3" fill="currentColor"/><circle cx="20" cy="80" r="3" fill="currentColor"/></svg>`, // Star
-            18: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M70 50 A 30 30 0 1 1 50 20 A 20 20 0 1 0 70 50" fill="currentColor"/><path d="M10 80 Q 25 60 40 80" stroke="currentColor" fill="none" stroke-width="4"/><path d="M60 80 Q 75 60 90 80" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, // Moon
-            19: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="50" r="20" fill="currentColor"/><line x1="50" y1="10" x2="50" y2="25" stroke="currentColor" stroke-width="4"/><line x1="50" y1="75" x2="50" y2="90" stroke="currentColor" stroke-width="4"/><line x1="10" y1="50" x2="25" y2="50" stroke="currentColor" stroke-width="4"/><line x1="75" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="4"/><line x1="22" y1="22" x2="32" y2="32" stroke="currentColor" stroke-width="4"/><line x1="78" y1="78" x2="68" y2="68" stroke="currentColor" stroke-width="4"/><line x1="22" y1="78" x2="32" y2="68" stroke="currentColor" stroke-width="4"/><line x1="78" y1="22" x2="68" y2="32" stroke="currentColor" stroke-width="4"/></svg>`, // Sun
-            20: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M20 20 L60 40 L60 60 L20 80 Z" stroke="currentColor" fill="none" stroke-width="4"/><line x1="60" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="5"/><path d="M30 50 Q 50 10 70 50" stroke="currentColor" fill="none" stroke-width="3" stroke-dasharray="4 4"/></svg>`, // Judgement
-            21: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><ellipse cx="50" cy="50" rx="30" ry="40" stroke="currentColor" fill="none" stroke-width="5"/><path d="M45 30 L50 70 L55 30 Z" stroke="currentColor" fill="none" stroke-width="3"/><circle cx="20" cy="20" r="5" fill="currentColor"/><circle cx="80" cy="20" r="5" fill="currentColor"/><circle cx="20" cy="80" r="5" fill="currentColor"/><circle cx="80" cy="80" r="5" fill="currentColor"/></svg>` // World
+            0: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="30" r="10" stroke="currentColor" fill="none" stroke-width="4"/><path d="M50 40 L50 70 M50 50 L30 60 M50 50 L75 40 M50 70 L35 95 M50 70 L65 95 M75 40 L85 30" stroke="currentColor" fill="none" stroke-width="4" stroke-linecap="round"/><circle cx="88" cy="27" r="5" fill="currentColor"/><path d="M20 95 L80 95" stroke="currentColor" stroke-width="3" stroke-dasharray="5 5"/></svg>`, 
+            1: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 40 C30 20, 70 20, 70 40 C70 60, 30 60, 30 80 C30 100, 70 100, 70 80 C70 60, 30 60, 30 40" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="3"/><polygon points="45,10 55,10 50,0" fill="currentColor"/><polygon points="45,90 55,90 50,100" fill="currentColor"/></svg>`, 
+            2: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 70 A 25 25 0 1 1 50 20 A 25 25 0 1 0 50 70" fill="currentColor"/><rect x="15" y="10" width="15" height="80" stroke="currentColor" fill="none" stroke-width="4"/><rect x="70" y="10" width="15" height="80" stroke="currentColor" fill="currentColor" stroke-width="4"/></svg>`, 
+            3: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="40" r="20" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="60" x2="50" y2="90" stroke="currentColor" stroke-width="5"/><line x1="35" y1="75" x2="65" y2="75" stroke="currentColor" stroke-width="5"/><path d="M10 50 Q 50 0 90 50" stroke="currentColor" fill="none" stroke-width="3" stroke-dasharray="4 4"/></svg>`, 
+            4: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="30" y="40" width="40" height="40" stroke="currentColor" fill="none" stroke-width="5"/><polygon points="30,40 50,15 70,40" stroke="currentColor" fill="none" stroke-width="5"/><line x1="15" y1="80" x2="85" y2="80" stroke="currentColor" stroke-width="5"/><circle cx="50" cy="60" r="8" fill="currentColor"/></svg>`, 
+            5: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="6"/><line x1="30" y1="30" x2="70" y2="30" stroke="currentColor" stroke-width="6"/><line x1="35" y1="50" x2="65" y2="50" stroke="currentColor" stroke-width="6"/><line x1="40" y1="70" x2="60" y2="70" stroke="currentColor" stroke-width="6"/></svg>`, 
+            6: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 85 C50 85, 10 55, 10 30 A20 20 0 0 1 50 30 A20 20 0 0 1 90 30 C90 55, 50 85, 50 85" fill="none" stroke="currentColor" stroke-width="5"/><path d="M50 75 C50 75, 25 50, 25 35 A10 10 0 0 1 50 35 A10 10 0 0 1 75 35 C75 50, 50 75, 50 75" fill="currentColor"/></svg>`, 
+            7: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="25" y="40" width="50" height="30" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="25" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="75" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="40" x2="50" y2="10" stroke="currentColor" stroke-width="5"/><path d="M30 20 Q50 0 70 20" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, 
+            8: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 10 C 20 10, 20 50, 50 90 C 80 50, 80 10, 50 10" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="40" r="15" fill="currentColor"/><path d="M20 50 Q 50 20 80 50" stroke="currentColor" fill="none" stroke-width="3"/></svg>`, 
+            9: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M40 20 L60 20 L70 80 L30 80 Z" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="10" fill="currentColor"/><line x1="50" y1="20" x2="50" y2="10" stroke="currentColor" stroke-width="4"/><line x1="50" y1="10" x2="75" y2="10" stroke="currentColor" stroke-width="4"/></svg>`, 
+            10: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="50" r="40" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="25" stroke="currentColor" fill="none" stroke-width="3"/><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="3"/><line x1="10" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="3"/><line x1="22" y1="22" x2="78" y2="78" stroke="currentColor" stroke-width="3"/><line x1="22" y1="78" x2="78" y2="22" stroke="currentColor" stroke-width="3"/></svg>`, 
+            11: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="50" y1="20" x2="50" y2="90" stroke="currentColor" stroke-width="6"/><line x1="20" y1="40" x2="80" y2="40" stroke="currentColor" stroke-width="6"/><path d="M20 40 L10 70 L30 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><path d="M80 40 L70 70 L90 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><polygon points="40,20 60,20 50,5" fill="currentColor"/></svg>`, 
+            12: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="20" y1="15" x2="80" y2="15" stroke="currentColor" stroke-width="6"/><line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-dasharray="5 5" stroke-width="3"/><circle cx="50" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="4"/><path d="M35 50 L50 70 L65 50" stroke="currentColor" fill="none" stroke-width="4"/><path d="M40 30 L60 30" stroke="currentColor" stroke-width="4"/></svg>`, 
+            13: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 30 C 30 10, 70 10, 70 30 C 70 50, 60 50, 60 70 L 40 70 C 40 50, 30 50, 30 30 Z" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="40" cy="35" r="5" fill="currentColor"/><circle cx="60" cy="35" r="5" fill="currentColor"/><path d="M45 60 L55 60" stroke="currentColor" stroke-width="4"/></svg>`, 
+            14: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 30 L50 60 L70 30 Z" stroke="currentColor" fill="none" stroke-width="4"/><path d="M30 70 L50 40 L70 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><circle cx="50" cy="50" r="10" fill="currentColor"/><path d="M50 10 A40 40 0 0 0 10 50" stroke="currentColor" fill="none" stroke-width="3"/><path d="M50 90 A40 40 0 0 0 90 50" stroke="currentColor" fill="none" stroke-width="3"/></svg>`, 
+            15: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><polygon points="50,80 20,30 80,30" stroke="currentColor" fill="none" stroke-width="5"/><polygon points="50,20 20,70 80,70" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="45" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, 
+            16: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="35" y="40" width="30" height="50" stroke="currentColor" fill="none" stroke-width="5"/><path d="M30 40 L70 40 L50 25 Z" fill="currentColor"/><path d="M60 10 L45 30 L55 35 L40 60" stroke="currentColor" fill="none" stroke-width="4" stroke-linejoin="miter"/></svg>`, 
+            17: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><polygon points="50,10 60,40 90,50 60,60 50,90 40,60 10,50 40,40" stroke="currentColor" fill="none" stroke-width="4"/><circle cx="50" cy="50" r="8" fill="currentColor"/><circle cx="20" cy="20" r="3" fill="currentColor"/><circle cx="80" cy="80" r="3" fill="currentColor"/><circle cx="80" cy="20" r="3" fill="currentColor"/><circle cx="20" cy="80" r="3" fill="currentColor"/></svg>`, 
+            18: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M70 50 A 30 30 0 1 1 50 20 A 20 20 0 1 0 70 50" fill="currentColor"/><path d="M10 80 Q 25 60 40 80" stroke="currentColor" fill="none" stroke-width="4"/><path d="M60 80 Q 75 60 90 80" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, 
+            19: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="50" r="20" fill="currentColor"/><line x1="50" y1="10" x2="50" y2="25" stroke="currentColor" stroke-width="4"/><line x1="50" y1="75" x2="50" y2="90" stroke="currentColor" stroke-width="4"/><line x1="10" y1="50" x2="25" y2="50" stroke="currentColor" stroke-width="4"/><line x1="75" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="4"/><line x1="22" y1="22" x2="32" y2="32" stroke="currentColor" stroke-width="4"/><line x1="78" y1="78" x2="68" y2="68" stroke="currentColor" stroke-width="4"/><line x1="22" y1="78" x2="32" y2="68" stroke="currentColor" stroke-width="4"/><line x1="78" y1="22" x2="68" y2="32" stroke="currentColor" stroke-width="4"/></svg>`, 
+            20: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M20 20 L60 40 L60 60 L20 80 Z" stroke="currentColor" fill="none" stroke-width="4"/><line x1="60" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="5"/><path d="M30 50 Q 50 10 70 50" stroke="currentColor" fill="none" stroke-width="3" stroke-dasharray="4 4"/></svg>`, 
+            21: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><ellipse cx="50" cy="50" rx="30" ry="40" stroke="currentColor" fill="none" stroke-width="5"/><path d="M45 30 L50 70 L55 30 Z" stroke="currentColor" fill="none" stroke-width="3"/><circle cx="20" cy="20" r="5" fill="currentColor"/><circle cx="80" cy="20" r="5" fill="currentColor"/><circle cx="20" cy="80" r="5" fill="currentColor"/><circle cx="80" cy="80" r="5" fill="currentColor"/></svg>`
         };
 
         const cardsData = [
@@ -480,7 +746,7 @@
               en: { n: "Death", d: "The end of a cycle. Embrace profound transformation.", u: "Endings, change, transformation.", r: "Resistance to change, fear." },
               gu: { n: "ડેથ (મૃત્યુ)", d: "એક ચક્રનો અંત. ગહન પરિવર્તનને સ્વીકારો.", u: "અંત, પરિવર્તન, રૂપાંતર.", r: "પરિવર્તનનો પ્રતિકાર, ડર." },
               hi: { n: "डेथ (मृत्यु)", d: "एक चक्र का अंत। गहन परिवर्तन को अपनाएं।", u: "अंत, परिवर्तन, रूपांतरण।", r: "परिवर्तन का विरोध, भय।" },
-              es: { n: "La Muerte", d: "El fin de un ciclo. Abraza una profunda transformación.", u: "Finales, cambio, transformación.", r: "Resistencia al cambio, miedo." },
+              es: { n: "La Muerte", d: "El fin de un ciclo. Abraza una profunda transformación.", u: "Finales, cambio, transformation.", r: "Resistencia al cambio, miedo." },
               fr: { n: "La Mort", d: "La fin d'un cycle. Embrassez une profonde transformation.", u: "Fins, changement, transformation.", r: "Résistance au changement, peur." }
             },
             { id: 14,
@@ -608,47 +874,88 @@
         let currentSpread = 1;
         let cardsRemaining = 0;
         let drawnDeck = [];
-        let deckOrder = []; // Array of card objects currently in the fanned deck
+        let deckOrder = []; 
+        let drawnCardIds = []; // Prevents duplicate cards
 
         const menuView = document.getElementById('menu-view');
         const galleryView = document.getElementById('gallery-view');
         const readingView = document.getElementById('reading-view');
         const slotsContainer = document.getElementById('slots-container');
-        const cardsToDrawEl = document.getElementById('cards-to-draw');
         const instructionText = document.getElementById('instruction-text');
         const resultsContainer = document.getElementById('results-container');
         const meaningsList = document.getElementById('meanings-list');
         const spreadContainer = document.getElementById('spread-container');
         const deckActions = document.getElementById('deck-actions');
 
+        function toggleMenu() {
+            const drawer = document.getElementById('side-drawer');
+            const overlay = document.getElementById('menu-overlay');
+            
+            if (drawer.classList.contains('-translate-x-full')) {
+                drawer.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-0');
+                    overlay.classList.add('opacity-100');
+                }, 10);
+            } else {
+                drawer.classList.add('-translate-x-full');
+                overlay.classList.remove('opacity-100');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                }, 300);
+            }
+        }
+
         function changeLanguage(lang) {
             currentLang = lang;
             const t = uiStrings[lang];
             
-            document.getElementById('ui-title').innerText = t.title;
-            document.getElementById('ui-subtitle').innerText = t.subtitle;
-            document.getElementById('ui-chooseReading').innerText = t.chooseReading;
-            document.getElementById('ui-menuDesc').innerText = t.menuDesc;
-            document.getElementById('ui-dailyDraw').innerText = t.dailyDraw;
-            document.getElementById('ui-dailyDrawDesc').innerText = t.dailyDrawDesc;
-            document.getElementById('ui-pastPresentFuture').innerText = t.pastPresentFuture;
-            document.getElementById('ui-ppfDesc').innerText = t.ppfDesc;
-            document.getElementById('ui-viewCards').innerText = t.viewCards;
-            document.getElementById('ui-galleryTitle').innerText = t.galleryTitle;
-            document.getElementById('ui-backToMenu1').innerText = t.backToMenu;
-            document.getElementById('ui-backToMenu2').innerText = t.backToMenu;
-            document.getElementById('ui-yourReading').innerText = t.yourReading;
-            document.getElementById('ui-newReading').innerText = t.newReading;
-            document.getElementById('ui-shuffleBtn').innerText = t.shuffleBtn;
-            document.getElementById('ui-footer').innerText = t.footer;
+            // Helper function to safely set text even if element is hidden/missing
+            const setTxt = (id, txt) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = txt;
+            };
+
+            setTxt('ui-title', t.title);
+            setTxt('ui-subtitle', t.subtitle);
+            setTxt('ui-chooseReading', t.chooseReading);
+            setTxt('ui-menuDesc', t.menuDesc);
+            setTxt('ui-dailyDraw', t.dailyDraw);
+            setTxt('ui-dailyDrawDesc', t.dailyDrawDesc);
+            setTxt('ui-pastPresentFuture', t.pastPresentFuture);
+            setTxt('ui-ppfDesc', t.ppfDesc);
+            setTxt('ui-viewCards', t.viewCards);
+            setTxt('ui-galleryTitle', t.galleryTitle);
+            setTxt('ui-backToMenu1', t.backToMenu);
+            setTxt('ui-backToMenu2', t.backToMenu);
+            setTxt('ui-yourReading', t.yourReading);
+            setTxt('ui-newReading', t.newReading);
+            setTxt('ui-shuffleBtn', t.shuffleBtn);
+            setTxt('ui-footer', t.footer);
+            
+            // Sidebar updates
+            setTxt('ui-connect', t.connect);
+            setTxt('ui-moreApps', t.moreApps);
+
+            // Guide Buttons updates
+            setTxt('ui-learnTarot', t.learnTarot);
+            setTxt('ui-btnHistory', t.btnHistory);
+            setTxt('ui-btnHowItWorks', t.btnHowItWorks);
+            setTxt('ui-btnUprightReversed', t.btnUprightReversed);
+            setTxt('ui-btnUses', t.btnUses);
+
+            // AI Buttons
+            setTxt('ui-btnAi', t.btnAi);
+            setTxt('ui-aiThinking', t.aiThinking);
+            setTxt('ui-aiTitle', t.aiTitle);
 
             // Re-render gallery if open
-            if(!galleryView.classList.contains('hidden-view')){
+            if(!galleryView || !galleryView.classList.contains('hidden-view')){
                 renderGallery();
             }
-
-            // Update reading views if active
-            if(!readingView.classList.contains('hidden-view')) {
+            if(!readingView || !readingView.classList.contains('hidden-view')) {
                 updateInstruction();
                 if(drawnDeck.length > 0) reRenderTranslations();
             }
@@ -658,12 +965,6 @@
             for(let i=0; i<currentSpread; i++) {
                 const slotLabel = document.getElementById(`slot-label-${i}`);
                 if(slotLabel) slotLabel.innerText = getPositionName(i, currentSpread);
-                
-                const slotFace = document.getElementById(`slot-name-${i}`);
-                if(slotFace) {
-                    const d = drawnDeck.find(x => x.slotIndex === i);
-                    if(d) slotFace.innerText = d.card[currentLang].n.split(' (')[0];
-                }
             }
             if(!resultsContainer.classList.contains('hidden-view')) {
                 meaningsList.innerHTML = '';
@@ -690,6 +991,43 @@
             menuView.classList.remove('hidden-view');
         }
 
+        // Guide Modal Functions
+        function openGuide(topic) {
+            const modal = document.getElementById('guide-modal');
+            const content = guideContent[topic];
+            
+            document.getElementById('guide-icon').innerText = content.icon;
+            document.getElementById('guide-title').innerText = content[currentLang].t;
+            document.getElementById('guide-body').innerHTML = content[currentLang].d;
+            
+            modal.classList.remove('hidden-view');
+            // Trigger reflow for animation
+            void modal.offsetWidth; 
+            modal.classList.remove('opacity-0');
+            modal.classList.add('opacity-100');
+            modal.querySelector('.modal-content').classList.remove('scale-95');
+            modal.querySelector('.modal-content').classList.add('scale-100');
+        }
+
+        function closeGuide() {
+            const modal = document.getElementById('guide-modal');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            modal.querySelector('.modal-content').classList.remove('scale-100');
+            modal.querySelector('.modal-content').classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden-view');
+            }, 300); // Wait for transition
+        }
+
+        // Close modal if clicked outside content
+        document.getElementById('guide-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeGuide();
+            }
+        });
+
         function renderGallery() {
             const grid = document.getElementById('gallery-grid');
             grid.innerHTML = '';
@@ -700,12 +1038,14 @@
                 const svg = cardSVGs[card.id];
                 const identifier = card.id < 22 ? (card.id === 0 ? '0' : romanize(card.id)) : '';
                 
+                const githubRawImg = `https://raw.githubusercontent.com/RajBaria/tarot-card-reading/main/card_${card.id}.img`;
+
                 const html = `
                     <div class="bg-mystic-900/60 border border-mystic-700 p-5 rounded-xl shadow-lg flex flex-col hover:border-mystic-gold/50 transition-colors">
                         <div class="flex items-center gap-4 mb-4 border-b border-mystic-700/50 pb-4">
                             <div class="w-16 h-24 bg-white rounded flex items-center justify-center border-2 border-mystic-gold p-1 relative overflow-hidden shrink-0">
                                 <div class="absolute inset-0 p-1">${svg}</div>
-                                <img src="https://raw.githubusercontent.com/RajBaria/tarot-card-reading/main/card_${card.id}.img" class="absolute inset-0 w-full h-full object-cover z-10" onerror="this.style.display='none'" alt="${cData.n}">
+                                <img src="${githubRawImg}" class="absolute top-0 left-0 w-full h-full object-cover z-10" onerror="this.style.display='none'" alt="${cData.n}">
                             </div>
                             <div>
                                 <h3 class="text-xl font-display font-bold text-mystic-gold">${cData.n}</h3>
@@ -727,9 +1067,14 @@
             currentSpread = spreadCount;
             cardsRemaining = spreadCount;
             drawnDeck = [];
+            drawnCardIds = []; // Reset duplicate tracker
             
             menuView.classList.add('hidden-view');
             readingView.classList.remove('hidden-view');
+            
+            // Hide AI sections on new game
+            document.getElementById('ai-result-box').classList.add('hidden-view');
+            document.getElementById('btn-get-ai').classList.remove('hidden-view');
             
             updateInstruction();
             setupSlots(spreadCount);
@@ -756,7 +1101,8 @@
                 const slotHTML = `
                     <div class="flex flex-col items-center">
                         <span id="slot-label-${i}" class="text-sm text-mystic-lightGold mb-2 font-display tracking-widest uppercase opacity-70">${label}</span>
-                        <div id="slot-${i}" class="w-24 sm:w-32 h-36 sm:h-48 border-2 border-dashed border-mystic-700 rounded-xl bg-mystic-900/30 flex items-center justify-center relative perspective">
+                        <!-- Increased Slot Size for Better Visibility -->
+                        <div id="slot-${i}" class="w-28 sm:w-40 h-44 sm:h-60 border-2 border-dashed border-mystic-700 rounded-xl bg-mystic-900/30 flex items-center justify-center relative perspective">
                         </div>
                     </div>
                 `;
@@ -775,7 +1121,7 @@
         }
 
         function initializeDeck() {
-            deckOrder = shuffleArray([...cardsData]); // Copy and shuffle
+            deckOrder = shuffleArray([...cardsData]);
             renderFannedDeck();
         }
 
@@ -783,29 +1129,45 @@
             spreadContainer.innerHTML = '';
             const total = deckOrder.length;
             
-            // Generate DOM elements
             deckOrder.forEach((card, index) => {
                 const el = document.createElement('div');
                 el.className = 'spread-card card-inner';
                 
-                // Card Back UI
+                // Add drawn class immediately if this card was already picked
+                if (drawnCardIds.includes(card.id)) {
+                    el.classList.add('drawn');
+                }
+                
                 el.innerHTML = `
                     <div class="card-back shadow-md border-mystic-gold/80" style="border-width: 1px;">
                         <span class="text-xl text-mystic-gold opacity-50 absolute">✧</span>
                     </div>
                 `;
                 
-                // Calculate position for a fanned arc of 78 cards
                 let angle = -45 + (90 / (total - 1)) * index;
                 let maxSpread = window.innerWidth < 600 ? 160 : 350; 
                 let xOffset = -maxSpread + ((maxSpread * 2) / (total - 1)) * index;
                 let normalizedX = (index / (total - 1)) * 2 - 1;
                 let yOffset = (normalizedX * normalizedX) * 40; 
 
+                // Set initial transform
                 el.style.transform = `translateX(${xOffset}px) translateY(${yOffset}px) rotate(${angle}deg)`;
-                el.dataset.baseTransform = el.style.transform;
-                el.dataset.cardId = card.id;
                 
+                // Set hover transform using CSS custom properties via JS
+                el.onmouseenter = () => {
+                    if(!el.classList.contains('drawn') && !spreadContainer.classList.contains('shuffling')) {
+                        // Move up by 30px from its current rotated position
+                        el.style.transform = `translateX(${xOffset}px) translateY(${yOffset - 30}px) rotate(${angle}deg) scale(1.15)`;
+                    }
+                };
+                el.onmouseleave = () => {
+                    if(!el.classList.contains('drawn') && !spreadContainer.classList.contains('shuffling')) {
+                        // Return to base position
+                        el.style.transform = `translateX(${xOffset}px) translateY(${yOffset}px) rotate(${angle}deg)`;
+                    }
+                };
+
+                el.dataset.cardId = card.id;
                 el.onclick = () => pickCardFromSpread(el, card);
                 spreadContainer.appendChild(el);
             });
@@ -816,27 +1178,29 @@
             
             spreadContainer.classList.add('shuffling');
             const t = uiStrings[currentLang];
-            document.getElementById('ui-shuffleBtn').innerText = t.title === "रહસ્યમય ટેરોટ" ? "પીસી રહ્યા છીએ..." : "Shuffling...";
+            document.getElementById('ui-shuffleBtn').innerText = t.title === "રહસ્યમય ટેરોટ" ? "પીસી રહ્યા છીએ..." : "Shuffling...";
 
             setTimeout(() => {
                 deckOrder = shuffleArray([...deckOrder]);
-                renderFannedDeck(); // Re-render in new order but still in shuffling state
+                renderFannedDeck(); 
                 
                 setTimeout(() => {
                     spreadContainer.classList.remove('shuffling');
                     document.getElementById('ui-shuffleBtn').innerText = t.shuffleBtn;
-                }, 50); // Small delay to allow CSS to register the new transform
-            }, 500); // Wait for them to gather to center
+                }, 50); 
+            }, 500); 
         }
 
         function pickCardFromSpread(cardElement, cardData) {
             if (cardsRemaining === 0) return;
             if (cardElement.classList.contains('drawn')) return;
+            if (drawnCardIds.includes(cardData.id)) return; // Extra safety check
 
-            // Mark visually drawn from spread
+            // Trigger visual drawn state (now translates DOWN 100px instead of UP)
             cardElement.classList.add('drawn');
+            drawnCardIds.push(cardData.id); // Add to drawn list to prevent duplicates
 
-            let isReversed = Math.random() < 0.2; // 20% chance of reversal
+            let isReversed = Math.random() < 0.2; 
             let slotIndex = currentSpread - cardsRemaining;
             
             drawnDeck.push({
@@ -863,27 +1227,30 @@
             const identifier = cardData.id < 22 ? (cardData.id === 0 ? '0' : romanize(cardData.id)) : '';
             const cardName = cardData[currentLang].n.split(' (')[0];
             const svgIcon = cardSVGs[cardData.id];
+            const githubRawImg = `https://raw.githubusercontent.com/RajBaria/tarot-card-reading/main/card_${cardData.id}.img`;
 
+            // FULL SIZE IMAGE FIX: Image now takes 100% of the slot (inset-0) and covers it completely (z-50)
             const cardHTML = `
                 <div class="card-container w-full h-full ${isReversed ? 'reversed-card' : ''}">
                     <div class="card-inner" style="transition: transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
                         <div class="card-back"></div>
-                        <div class="card-front relative p-1 sm:p-2 overflow-hidden bg-white rounded-xl">
-                            <div class="absolute inset-1 sm:inset-2 border border-mystic-900/20 rounded-lg pointer-events-none z-20"></div>
+                        <div class="card-front relative bg-white rounded-xl overflow-hidden shadow-inner border border-mystic-gold">
                             
-                            <div class="card-content-wrapper relative z-0 h-full flex flex-col items-center justify-between">
-                                <div id="slot-name-${slotIndex}" class="text-[0.55rem] sm:text-[0.65rem] leading-tight font-display font-bold text-mystic-900 mb-1 uppercase text-center min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center border-b border-gray-300 w-full pb-1">
+                            <!-- Fallback UI (Visible only if image fails or before it loads) -->
+                            <div class="absolute inset-0 flex flex-col items-center justify-between p-2 z-0">
+                                <div id="slot-name-${slotIndex}" class="text-[0.65rem] sm:text-xs leading-tight font-display font-bold text-mystic-900 mb-1 uppercase text-center min-h-[2rem] flex items-center justify-center border-b border-gray-300 w-full pb-1">
                                     ${cardName}
                                 </div>
-                                <div class="w-12 h-12 sm:w-16 sm:h-16 my-auto text-mystic-900 flex items-center justify-center">
+                                <div class="w-16 h-16 my-auto text-mystic-900 flex items-center justify-center">
                                     ${svgIcon}
                                 </div>
-                                <div class="text-[0.55rem] sm:text-[0.65rem] text-mystic-700 mt-1 text-center uppercase tracking-wider font-bold">
+                                <div class="text-[0.65rem] text-mystic-700 mt-1 text-center uppercase tracking-wider font-bold">
                                     ${identifier}
                                 </div>
                             </div>
                             
-                            <img src="https://raw.githubusercontent.com/RajBaria/tarot-card-reading/main/card_${cardData.id}.img" class="absolute inset-0 w-full h-full object-cover z-10 rounded-lg" onerror="this.style.display='none'" alt="Tarot Card">
+                            <!-- Full Size High Quality Image -->
+                            <img src="${githubRawImg}" class="absolute top-0 left-0 w-full h-full object-cover z-50 rounded-xl" onerror="this.style.display='none'" alt="Tarot Card">
                         </div>
                     </div>
                 </div>
@@ -891,7 +1258,6 @@
             
             slot.innerHTML = cardHTML;
 
-            // Trigger flip animation after small delay
             setTimeout(() => {
                 slot.querySelector('.card-container').classList.add('flipped');
             }, 100);
@@ -926,22 +1292,24 @@
                 
                 const keywords = drawn.reversed ? cData.r : cData.u;
                 const svgIcon = cardSVGs[drawn.card.id];
+                const githubRawImg = `https://raw.githubusercontent.com/RajBaria/tarot-card-reading/main/card_${drawn.card.id}.img`;
                 
+                // Image Size increased in results too (w-20 h-32)
                 const meaningHTML = `
                     <div class="bg-mystic-900/50 p-4 sm:p-5 rounded-xl border border-mystic-700/50">
-                        <div class="flex items-center gap-3 border-b border-mystic-700 pb-3 mb-3">
-                            <div class="w-14 h-20 bg-white rounded border border-mystic-gold shrink-0 relative overflow-hidden">
+                        <div class="flex items-center gap-4 border-b border-mystic-700 pb-4 mb-4">
+                            <div class="w-20 h-32 bg-white rounded-lg border-2 border-mystic-gold shrink-0 relative overflow-hidden">
                                 <div class="absolute inset-0 p-1 flex items-center justify-center">${svgIcon}</div>
-                                <img src="https://raw.githubusercontent.com/RajBaria/tarot-card-reading/main/card_${drawn.card.id}.img" class="absolute inset-0 w-full h-full object-cover z-10" onerror="this.style.display='none'" alt="Card">
+                                <img src="${githubRawImg}" class="absolute top-0 left-0 w-full h-full object-cover z-10 ${drawn.reversed ? 'rotate-180 transform' : ''}" onerror="this.style.display='none'" alt="Card">
                             </div>
                             <div>
-                                <h4 class="text-mystic-lightGold text-xs uppercase tracking-widest">${posName}</h4>
-                                <h3 class="text-lg sm:text-2xl font-display font-bold text-white">${cData.n} ${stateText}</h3>
+                                <h4 class="text-mystic-lightGold text-xs uppercase tracking-widest mb-1">${posName}</h4>
+                                <h3 class="text-xl sm:text-3xl font-display font-bold text-white leading-tight">${cData.n} <br class="sm:hidden"/>${stateText}</h3>
                             </div>
                         </div>
-                        <p class="text-gray-300 italic mb-2 text-sm sm:text-base">"${cData.d}"</p>
-                        <p class="text-mystic-gold font-semibold text-sm sm:text-base">
-                            ${t.keyMeaning} <span class="text-gray-200 font-normal">${keywords}</span>
+                        <p class="text-gray-300 italic mb-3 text-sm sm:text-base">"${cData.d}"</p>
+                        <p class="text-mystic-gold font-semibold text-sm sm:text-base bg-mystic-900/50 p-2 rounded-lg inline-block border border-mystic-700">
+                            ${t.keyMeaning} <span class="text-gray-200 font-normal ml-1">${keywords}</span>
                         </p>
                     </div>
                 `;
@@ -955,15 +1323,77 @@
             }
         }
 
+        async function getAIReading() {
+            const btn = document.getElementById('btn-get-ai');
+            const loading = document.getElementById('ai-loading');
+            const resultBox = document.getElementById('ai-result-box');
+            const contentBox = document.getElementById('ai-response-content');
+            
+            btn.classList.add('hidden-view');
+            loading.classList.remove('hidden-view');
+            resultBox.classList.add('hidden-view');
+            
+            // Prepare context for AI
+            let readingContext = `Act as an expert, mystical Tarot Card reader. Provide a highly insightful, empathetic, and slightly mystical reading. The language MUST BE: ${currentLang === 'gu' ? 'Gujarati' : currentLang === 'hi' ? 'Hindi' : currentLang === 'es' ? 'Spanish' : currentLang === 'fr' ? 'French' : 'English'}.\n\n`;
+            
+            readingContext += `The user chose a ${currentSpread}-card spread.\n`;
+            drawnDeck.forEach(drawn => {
+                const pos = getPositionName(drawn.slotIndex, currentSpread);
+                const cardName = drawn.card.en.n;
+                const state = drawn.reversed ? 'Reversed' : 'Upright';
+                readingContext += `Position: ${pos} - Card: ${cardName} (${state})\n`;
+            });
+            
+            readingContext += `\nPlease synthesize these cards into a cohesive, encouraging 2-3 paragraph reading. Do not just list the cards again. Weave a story about what these energies mean together for the user's current life journey. Format with short paragraphs and line breaks. Use bullet points if necessary. Make it sound magical but grounded.`;
+
+            try {
+                // Call Gemini API
+                const apiKey = ""; // Canvas injects this automatically
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: readingContext }] }]
+                    })
+                });
+                
+                const data = await response.json();
+                const aiText = data.candidates[0].content.parts[0].text;
+                
+                // Format text (convert markdown ** to bold, \n to <br>)
+                let formattedText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong class="text-mystic-gold">$1</strong>');
+                formattedText = formattedText.replace(/\n/g, '<br/>');
+                
+                contentBox.innerHTML = formattedText;
+                
+                loading.classList.add('hidden-view');
+                resultBox.classList.remove('hidden-view');
+                resultBox.classList.add('fade-in');
+                
+                // Scroll to result
+                setTimeout(() => {
+                    resultBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+
+            } catch (error) {
+                console.error("AI Reading Error:", error);
+                loading.classList.add('hidden-view');
+                btn.classList.remove('hidden-view');
+                alert(currentLang === 'gu' ? 'AI સાથે જોડાવવામાં ભૂલ થઈ. ફરી પ્રયાસ કરો.' : 'Failed to connect to AI. Please try again.');
+            }
+        }
+
         function resetGame() {
             readingView.classList.add('hidden-view');
             menuView.classList.remove('hidden-view');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Initialize correctly on page load
         window.onload = function() {
             changeLanguage(document.getElementById('lang-select').value);
+            document.getElementById('current-year').innerText = new Date().getFullYear();
         }
     </script>
 </body>
