@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mystic Tarot Reading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        mystic: {
+                            900: '#1a0b2e',
+                            800: '#2d1b4e',
+                            700: '#432c7a',
+                            gold: '#d4af37',
+                            lightGold: '#f3e5ab'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['Playfair Display', 'serif'],
+                        display: ['Cinzel', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background: radial-gradient(circle at center, #2d1b4e 0%, #0a0410 100%);
+            color: #f3e5ab;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 40px 70px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 50px 160px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 90px 40px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 130px 80px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 160px 120px, #ffffff, rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            opacity: 0.3;
+            animation: twinkle 5s infinite alternate;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.1; }
+            100% { opacity: 0.4; }
+        }
+
+        /* 3D Card Flip CSS */
+        .perspective { perspective: 1000px; }
+        
+        .card-inner {
+            position: relative;
+            width: 100%; height: 100%;
+            text-align: center;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            border-radius: 0.75rem;
+        }
+        
+        .card-container.flipped .card-inner { transform: rotateY(180deg); }
+        
+        .card-front, .card-back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; border-radius: 0.75rem;
+            border: 2px solid #d4af37;
+        }
+        
+        .card-back {
+            background: linear-gradient(135deg, #1a0b2e 0%, #432c7a 100%);
+            display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+
+        .card-back::after {
+            content: '✧'; font-size: 3rem; color: rgba(212, 175, 55, 0.5); position: absolute;
+        }
+        .card-back::before {
+            content: ''; position: absolute; inset: 6px;
+            border: 1px dashed #d4af37; border-radius: 0.5rem; opacity: 0.5;
+        }
+        
+        .card-front {
+            background: #fdfbf7; color: #1a0b2e;
+            transform: rotateY(180deg); display: flex; flex-direction: column;
+        }
+
+        .card-content-wrapper {
+            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+            height: 100%; padding: 0.5rem; transition: transform 0.5s;
+        }
+        
+        .card-container.reversed-card .card-content-wrapper { transform: rotateZ(180deg); }
+
+        .btn-mystic {
+            background: linear-gradient(45deg, #432c7a, #1a0b2e);
+            border: 1px solid #d4af37; color: #f3e5ab; transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+            cursor: pointer;
+        }
+        .btn-mystic:hover {
+            box-shadow: 0 4px 20px rgba(212, 175, 55, 0.6);
+            transform: translateY(-2px);
+            background: linear-gradient(45deg, #1a0b2e, #432c7a);
+        }
+
+        .fade-in { animation: fadeIn 0.8s forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hidden-view { display: none !important; }
+
+        /* Fanned Deck Styles */
+        .spread-container {
+            position: relative;
+            height: 200px; width: 100%; max-width: 800px;
+            margin: 0 auto; display: flex; justify-content: center; align-items: flex-end;
+            perspective: 1000px;
+        }
+        .spread-card {
+            position: absolute;
+            width: 70px; height: 110px;
+            transform-origin: bottom center;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            cursor: pointer;
+            box-shadow: -2px 0px 10px rgba(0,0,0,0.5);
+        }
+        .spread-card:hover {
+            transform: translateY(-30px) scale(1.15) !important;
+            z-index: 100 !important;
+            box-shadow: 0px 15px 25px rgba(212, 175, 55, 0.4);
+        }
+        .spread-card.drawn {
+            opacity: 0; pointer-events: none; transform: translateY(-100px) scale(0.5) !important;
+        }
+
+        /* Shuffle Animation */
+        .shuffling .spread-card {
+            transform: translate(0, 0) rotate(0deg) !important;
+            opacity: 0.8;
+        }
+
+        /* Custom Scrollbar for Gallery */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a0b2e; }
+        ::-webkit-scrollbar-thumb { background: #432c7a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #d4af37; }
+
+        /* Gallery Grid */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+    </style>
+</head>
+<body class="relative font-serif antialiased selection:bg-mystic-gold selection:text-mystic-900">
+    <div class="stars"></div>
+
+    <div class="absolute top-4 right-4 z-50 flex gap-4 items-center">
+        <select id="lang-select" onchange="changeLanguage(this.value)" class="bg-mystic-900 border border-mystic-gold text-mystic-lightGold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-mystic-gold font-sans shadow-lg cursor-pointer">
+            <option value="gu" selected>ગુજરાતી</option>
+            <option value="en">English</option>
+            <option value="hi">हिन्दी</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+        </select>
+    </div>
+
+    <div class="relative z-10 container mx-auto px-4 py-8 flex flex-col items-center min-h-screen pt-16">
+        
+        <header class="text-center mb-8 fade-in">
+            <h1 id="ui-title" class="font-display text-4xl md:text-5xl text-mystic-gold mb-2 tracking-wider drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]">
+                રહસ્યમય ટેરોટ
+            </h1>
+            <p id="ui-subtitle" class="text-lg text-mystic-lightGold opacity-80 italic">કાર્ડ્સનું ડહાપણ શોધો...</p>
+        </header>
+
+        <main id="menu-view" class="w-full max-w-2xl text-center fade-in flex-grow flex flex-col justify-center pb-20">
+            <div class="bg-mystic-900/60 p-8 rounded-2xl border border-mystic-700 backdrop-blur-sm shadow-2xl">
+                <h2 id="ui-chooseReading" class="text-2xl font-display text-mystic-gold mb-6">તમારું રીડિંગ પસંદ કરો</h2>
+                <p id="ui-menuDesc" class="mb-8 text-gray-300">તમારા પ્રશ્ન અથવા વર્તમાન પરિસ્થિતિ પર ધ્યાન કેન્દ્રિત કરો, અને શરૂ કરવા માટે વિકલ્પ પસંદ કરો.</p>
+                
+                <div class="flex flex-col sm:flex-row justify-center gap-4 mb-6">
+                    <button onclick="startGame(1)" class="btn-mystic px-6 py-4 rounded-xl font-bold flex flex-col items-center gap-1 group flex-1">
+                        <span class="text-2xl group-hover:scale-110 transition-transform">✨</span>
+                        <span id="ui-dailyDraw">દૈનિક કાર્ડ</span>
+                        <span id="ui-dailyDrawDesc" class="text-xs font-normal opacity-70">1 કાર્ડ (ઝડપી સમજ)</span>
+                    </button>
+                    <button onclick="startGame(3)" class="btn-mystic px-6 py-4 rounded-xl font-bold flex flex-col items-center gap-1 group flex-1">
+                        <span class="text-2xl group-hover:scale-110 transition-transform">🔮</span>
+                        <span id="ui-pastPresentFuture">ભૂત, વર્તમાન, ભવિષ્ય</span>
+                        <span id="ui-ppfDesc" class="text-xs font-normal opacity-70">3 કાર્ડ (ઊંડાણપૂર્વક)</span>
+                    </button>
+                </div>
+                
+                <div class="border-t border-mystic-700/50 pt-6">
+                    <button onclick="openGallery()" class="text-mystic-gold hover:text-white transition-colors flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-lg border border-transparent hover:border-mystic-gold/50">
+                        <span class="text-xl">🎴</span>
+                        <span id="ui-viewCards">કાર્ડ્સ જુઓ (ગેલેરી)</span>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <main id="gallery-view" class="w-full max-w-6xl hidden-view flex-grow flex flex-col items-center pb-10">
+            <div class="w-full flex justify-between items-center mb-8 px-4">
+                <h2 id="ui-galleryTitle" class="text-3xl font-display text-mystic-gold">ટેરોટ ગેલેરી</h2>
+                <button onclick="closeGallery()" class="btn-mystic px-4 py-2 rounded-lg text-sm" id="ui-backToMenu1">મુખ્ય મેનુ</button>
+            </div>
+            
+            <div id="gallery-grid" class="gallery-grid w-full pb-10">
+                <!-- Gallery cards injected via JS -->
+            </div>
+        </main>
+
+        <main id="reading-view" class="w-full max-w-5xl hidden-view flex-grow flex flex-col items-center pb-20">
+            
+            <div class="w-full flex justify-end mb-2 px-4">
+                <button onclick="resetGame()" class="text-mystic-gold opacity-70 hover:opacity-100 text-sm flex items-center gap-1 transition-opacity">
+                    <span id="ui-backToMenu2">મુખ્ય મેનુ પર પાછા ફરો</span> ↩
+                </button>
+            </div>
+
+            <div class="text-center mb-6 h-8 flex flex-col items-center justify-center w-full">
+                <p id="instruction-text" class="text-xl text-mystic-lightGold animate-pulse">નીચેના ડેકમાંથી કાર્ડ ખેંચો.</p>
+            </div>
+
+            <!-- Action Buttons for Deck -->
+            <div class="flex gap-4 mb-4 z-30" id="deck-actions">
+                <button onclick="shuffleDeckAnimation()" class="btn-mystic px-5 py-2 rounded-full text-sm flex items-center gap-2">
+                    <span>🌪️</span> <span id="ui-shuffleBtn">ડેકને પીસો (Shuffle)</span>
+                </button>
+            </div>
+
+            <!-- Fanned Spread Deck Area -->
+            <div class="relative w-full mb-16 mt-4">
+                <div id="spread-container" class="spread-container">
+                    <!-- 22 Cards generated via JS -->
+                </div>
+            </div>
+
+            <!-- Card Slots (Where drawn cards land) -->
+            <div id="slots-container" class="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 w-full mb-12">
+                <!-- Slots injected via JS -->
+            </div>
+
+            <!-- Reading Results -->
+            <div id="results-container" class="w-full max-w-4xl bg-mystic-900/80 p-6 sm:p-10 rounded-2xl border border-mystic-700 backdrop-blur-md shadow-2xl hidden-view">
+                <h3 id="ui-yourReading" class="text-3xl font-display text-mystic-gold mb-8 text-center border-b border-mystic-700 pb-4">તમારું રીડિંગ</h3>
+                <div id="meanings-list" class="space-y-8">
+                    <!-- Meanings injected via JS -->
+                </div>
+                <div class="mt-10 flex justify-center gap-4">
+                    <button onclick="resetGame()" class="btn-mystic px-8 py-3 rounded-full font-bold" id="ui-newReading">
+                        નવું રીડિંગ
+                    </button>
+                </div>
+            </div>
+
+        </main>
+        
+        <footer class="w-full text-center py-4 mt-auto opacity-60 text-xs sm:text-sm">
+            <p id="ui-footer">માત્ર મનોરંજન માટે. જાદુને તમને માર્ગદર્શન આપવા દો.</p>
+        </footer>
+    </div>
+
+    <script>
+        let currentLang = 'gu';
+
+        const uiStrings = {
+            en: {
+                title: "Mystic Tarot", subtitle: "Seek the wisdom of the cards...", chooseReading: "Choose Your Reading",
+                menuDesc: "Concentrate on your question or current situation, then select a spread to begin.",
+                dailyDraw: "Daily Draw", dailyDrawDesc: "1 Card (Quick Insight)",
+                pastPresentFuture: "Past, Present, Future", ppfDesc: "3 Cards (In-depth)",
+                viewCards: "View Cards (Gallery)", galleryTitle: "Tarot Gallery", backToMenu: "Back to Menu",
+                drawInstruction: "Select <span class='font-bold text-2xl mx-1 text-white'>{n}</span> more card(s) from anywhere in the deck.",
+                revealing: "The cards have been cast. Revealing your fate...", scrollDown: "Scroll down to read your interpretation.",
+                yourReading: "Your Reading", newReading: "New Reading", shuffleBtn: "Shuffle Deck",
+                footer: "For entertainment purposes only. Let the magic guide you.",
+                upright: "(Upright)", reversed: "(Reversed)", keyMeaning: "Key Meaning:",
+                posPast: "Past", posPresent: "Present", posFuture: "Future", posInsight: "Insight",
+                meaningUp: "Upright:", meaningRev: "Reversed:"
+            },
+            gu: {
+                title: "રહસ્યમય ટેરોટ", subtitle: "કાર્ડ્સનું ડહાપણ શોધો...", chooseReading: "તમારું રીડિંગ પસંદ કરો",
+                menuDesc: "તમારા પ્રશ્ન અથવા વર્તમાન પરિસ્થિતિ પર ધ્યાન કેન્દ્રિત કરો, અને શરૂ કરવા માટે વિકલ્પ પસંદ કરો.",
+                dailyDraw: "દૈનિક કાર્ડ", dailyDrawDesc: "1 કાર્ડ (ઝડપી સમજ)",
+                pastPresentFuture: "ભૂત, વર્તમાન, ભવિષ્ય", ppfDesc: "3 કાર્ડ (ઊંડાણપૂર્વક)",
+                viewCards: "કાર્ડ્સ જુઓ (ગેલેરી)", galleryTitle: "ટેરોટ ગેલેરી", backToMenu: "મુખ્ય મેનુ",
+                drawInstruction: "ડેકમાંથી ગમે ત્યાંથી <span class='font-bold text-2xl mx-1 text-white'>{n}</span> વધુ કાર્ડ ખેંચો.",
+                revealing: "કાર્ડ્સ ગોઠવાઈ ગયા છે. તમારું ભાગ્ય ખુલી રહ્યું છે...", scrollDown: "તમારું અર્થઘટન વાંચવા માટે નીચે સ્ક્રોલ કરો.",
+                yourReading: "તમારું રીડિંગ", newReading: "નવું રીડિંગ", shuffleBtn: "ડેકને પીસો",
+                footer: "માત્ર મનોરંજન માટે. જાદુને તમને માર્ગદર્શન આપવા દો.",
+                upright: "(સીધું)", reversed: "(ઊલટું)", keyMeaning: "મુખ્ય અર્થ:",
+                posPast: "ભૂતકાળ", posPresent: "વર્તમાન", posFuture: "ભવિષ્ય", posInsight: "સમજ",
+                meaningUp: "સીધો અર્થ:", meaningRev: "ઊલટો અર્થ:"
+            },
+            hi: {
+                title: "रहस्यमय टैरो", subtitle: "कार्ड का ज्ञान खोजें...", chooseReading: "अपनी रीडिंग चुनें",
+                menuDesc: "अपने प्रश्न या वर्तमान स्थिति पर ध्यान केंद्रित करें, और शुरू करने के लिए एक विकल्प चुनें।",
+                dailyDraw: "दैनिक कार्ड", dailyDrawDesc: "1 कार्ड (त्वरित अंतर्दृष्टि)",
+                pastPresentFuture: "अतीत, वर्तमान, भविष्य", ppfDesc: "3 कार्ड (गहन)",
+                viewCards: "कार्ड देखें (गैलरी)", galleryTitle: "टैरो गैलरी", backToMenu: "मुख्य मेनू",
+                drawInstruction: "डेक में से कहीं से भी <span class='font-bold text-2xl mx-1 text-white'>{n}</span> और कार्ड चुनें।",
+                revealing: "कार्ड बिछा दिए गए हैं। आपका भाग्य सामने आ रहा है...", scrollDown: "अपनी व्याख्या पढ़ने के लिए नीचे स्क्रॉल करें।",
+                yourReading: "आपकी रीडिंग", newReading: "नई रीडिंग", shuffleBtn: "डेक को फेंटें",
+                footer: "केवल मनोरंजन के लिए। जादू को आपका मार्गदर्शन करने दें।",
+                upright: "(सीधा)", reversed: "(उल्टा)", keyMeaning: "मुख्य अर्थ:",
+                posPast: "अतीत", posPresent: "वर्तमान", posFuture: "भविष्य", posInsight: "अंतर्दृष्टि",
+                meaningUp: "सीधा अर्थ:", meaningRev: "उल्टा अर्थ:"
+            },
+            es: {
+                title: "Tarot Místico", subtitle: "Busca la sabiduría de las cartas...", chooseReading: "Elige tu Lectura",
+                menuDesc: "Concéntrate en tu pregunta o situación actual, luego selecciona una tirada para comenzar.",
+                dailyDraw: "Carta Diaria", dailyDrawDesc: "1 Carta (Visión rápida)",
+                pastPresentFuture: "Pasado, Presente, Futuro", ppfDesc: "3 Cartas (Profundo)",
+                viewCards: "Ver Cartas (Galería)", galleryTitle: "Galería de Tarot", backToMenu: "Menú Principal",
+                drawInstruction: "Selecciona <span class='font-bold text-2xl mx-1 text-white'>{n}</span> carta(s) más de cualquier parte del mazo.",
+                revealing: "Las cartas han sido echadas. Revelando tu destino...", scrollDown: "Desplácese hacia abajo para leer su interpretación.",
+                yourReading: "Tu Lectura", newReading: "Nueva Lectura", shuffleBtn: "Barajar Mazo",
+                footer: "Solo para fines de entretenimiento. Deja que la magia te guíe.",
+                upright: "(Al derecho)", reversed: "(Invertido)", keyMeaning: "Significado clave:",
+                posPast: "Pasado", posPresent: "Presente", posFuture: "Futuro", posInsight: "Visión",
+                meaningUp: "Al derecho:", meaningRev: "Invertido:"
+            },
+            fr: {
+                title: "Tarot Mystique", subtitle: "Cherchez la sagesse des cartes...", chooseReading: "Choisissez votre Lecture",
+                menuDesc: "Concentrez-vous sur votre question ou situation actuelle, puis sélectionnez un tirage.",
+                dailyDraw: "Tirage Quotidien", dailyDrawDesc: "1 Carte (Aperçu rapide)",
+                pastPresentFuture: "Passé, Présent, Futur", ppfDesc: "3 Cartas (En profondeur)",
+                viewCards: "Voir les Cartes (Galerie)", galleryTitle: "Galerie de Tarot", backToMenu: "Menu Principal",
+                drawInstruction: "Sélectionnez <span class='font-bold text-2xl mx-1 text-white'>{n}</span> carte(s) supplémentaire(s) n'importe où dans le paquet.",
+                revealing: "Les cartes ont été jetées. Révélation de votre destin...", scrollDown: "Faites défiler pour lire votre interprétation.",
+                yourReading: "Votre Lecture", newReading: "Nouvelle Lecture", shuffleBtn: "Mélanger",
+                footer: "À des fins de divertissement seulement. Laissez la magie vous guider.",
+                upright: "(À l'endroit)", reversed: "(Inversé)", keyMeaning: "Signification clé :",
+                posPast: "Passé", posPresent: "Présent", posFuture: "Futur", posInsight: "Aperçu",
+                meaningUp: "À l'endroit:", meaningRev: "Inversé:"
+            }
+        };
+
+        // Using geometric paths to draw minimalist magical icons
+        const cardSVGs = {
+            0: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="30" r="10" stroke="currentColor" fill="none" stroke-width="4"/><path d="M50 40 L50 70 M50 50 L30 60 M50 50 L75 40 M50 70 L35 95 M50 70 L65 95 M75 40 L85 30" stroke="currentColor" fill="none" stroke-width="4" stroke-linecap="round"/><circle cx="88" cy="27" r="5" fill="currentColor"/><path d="M20 95 L80 95" stroke="currentColor" stroke-width="3" stroke-dasharray="5 5"/></svg>`, // The Fool
+            1: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 40 C30 20, 70 20, 70 40 C70 60, 30 60, 30 80 C30 100, 70 100, 70 80 C70 60, 30 60, 30 40" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="3"/><polygon points="45,10 55,10 50,0" fill="currentColor"/><polygon points="45,90 55,90 50,100" fill="currentColor"/></svg>`, // The Magician
+            2: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 70 A 25 25 0 1 1 50 20 A 25 25 0 1 0 50 70" fill="currentColor"/><rect x="15" y="10" width="15" height="80" stroke="currentColor" fill="none" stroke-width="4"/><rect x="70" y="10" width="15" height="80" stroke="currentColor" fill="currentColor" stroke-width="4"/></svg>`, // High Priestess
+            3: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="40" r="20" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="60" x2="50" y2="90" stroke="currentColor" stroke-width="5"/><line x1="35" y1="75" x2="65" y2="75" stroke="currentColor" stroke-width="5"/><path d="M10 50 Q 50 0 90 50" stroke="currentColor" fill="none" stroke-width="3" stroke-dasharray="4 4"/></svg>`, // Empress
+            4: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="30" y="40" width="40" height="40" stroke="currentColor" fill="none" stroke-width="5"/><polygon points="30,40 50,15 70,40" stroke="currentColor" fill="none" stroke-width="5"/><line x1="15" y1="80" x2="85" y2="80" stroke="currentColor" stroke-width="5"/><circle cx="50" cy="60" r="8" fill="currentColor"/></svg>`, // Emperor
+            5: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="6"/><line x1="30" y1="30" x2="70" y2="30" stroke="currentColor" stroke-width="6"/><line x1="35" y1="50" x2="65" y2="50" stroke="currentColor" stroke-width="6"/><line x1="40" y1="70" x2="60" y2="70" stroke="currentColor" stroke-width="6"/></svg>`, // Hierophant
+            6: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 85 C50 85, 10 55, 10 30 A20 20 0 0 1 50 30 A20 20 0 0 1 90 30 C90 55, 50 85, 50 85" fill="none" stroke="currentColor" stroke-width="5"/><path d="M50 75 C50 75, 25 50, 25 35 A10 10 0 0 1 50 35 A10 10 0 0 1 75 35 C75 50, 50 75, 50 75" fill="currentColor"/></svg>`, // Lovers
+            7: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="25" y="40" width="50" height="30" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="25" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="75" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="5"/><line x1="50" y1="40" x2="50" y2="10" stroke="currentColor" stroke-width="5"/><path d="M30 20 Q50 0 70 20" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, // Chariot
+            8: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M50 10 C 20 10, 20 50, 50 90 C 80 50, 80 10, 50 10" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="40" r="15" fill="currentColor"/><path d="M20 50 Q 50 20 80 50" stroke="currentColor" fill="none" stroke-width="3"/></svg>`, // Strength
+            9: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M40 20 L60 20 L70 80 L30 80 Z" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="10" fill="currentColor"/><line x1="50" y1="20" x2="50" y2="10" stroke="currentColor" stroke-width="4"/><line x1="50" y1="10" x2="75" y2="10" stroke="currentColor" stroke-width="4"/></svg>`, // Hermit
+            10: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="50" r="40" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="25" stroke="currentColor" fill="none" stroke-width="3"/><line x1="50" y1="10" x2="50" y2="90" stroke="currentColor" stroke-width="3"/><line x1="10" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="3"/><line x1="22" y1="22" x2="78" y2="78" stroke="currentColor" stroke-width="3"/><line x1="22" y1="78" x2="78" y2="22" stroke="currentColor" stroke-width="3"/></svg>`, // Wheel
+            11: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="50" y1="20" x2="50" y2="90" stroke="currentColor" stroke-width="6"/><line x1="20" y1="40" x2="80" y2="40" stroke="currentColor" stroke-width="6"/><path d="M20 40 L10 70 L30 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><path d="M80 40 L70 70 L90 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><polygon points="40,20 60,20 50,5" fill="currentColor"/></svg>`, // Justice
+            12: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><line x1="20" y1="15" x2="80" y2="15" stroke="currentColor" stroke-width="6"/><line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-dasharray="5 5" stroke-width="3"/><circle cx="50" cy="70" r="15" stroke="currentColor" fill="none" stroke-width="4"/><path d="M35 50 L50 70 L65 50" stroke="currentColor" fill="none" stroke-width="4"/><path d="M40 30 L60 30" stroke="currentColor" stroke-width="4"/></svg>`, // Hanged Man
+            13: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 30 C 30 10, 70 10, 70 30 C 70 50, 60 50, 60 70 L 40 70 C 40 50, 30 50, 30 30 Z" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="40" cy="35" r="5" fill="currentColor"/><circle cx="60" cy="35" r="5" fill="currentColor"/><path d="M45 60 L55 60" stroke="currentColor" stroke-width="4"/></svg>`, // Death (Skull)
+            14: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M30 30 L50 60 L70 30 Z" stroke="currentColor" fill="none" stroke-width="4"/><path d="M30 70 L50 40 L70 70 Z" stroke="currentColor" fill="none" stroke-width="4"/><circle cx="50" cy="50" r="10" fill="currentColor"/><path d="M50 10 A40 40 0 0 0 10 50" stroke="currentColor" fill="none" stroke-width="3"/><path d="M50 90 A40 40 0 0 0 90 50" stroke="currentColor" fill="none" stroke-width="3"/></svg>`, // Temperance
+            15: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><polygon points="50,80 20,30 80,30" stroke="currentColor" fill="none" stroke-width="5"/><polygon points="50,20 20,70 80,70" stroke="currentColor" fill="none" stroke-width="5"/><circle cx="50" cy="50" r="45" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, // Devil (Pentagram)
+            16: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="35" y="40" width="30" height="50" stroke="currentColor" fill="none" stroke-width="5"/><path d="M30 40 L70 40 L50 25 Z" fill="currentColor"/><path d="M60 10 L45 30 L55 35 L40 60" stroke="currentColor" fill="none" stroke-width="4" stroke-linejoin="miter"/></svg>`, // Tower
+            17: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><polygon points="50,10 60,40 90,50 60,60 50,90 40,60 10,50 40,40" stroke="currentColor" fill="none" stroke-width="4"/><circle cx="50" cy="50" r="8" fill="currentColor"/><circle cx="20" cy="20" r="3" fill="currentColor"/><circle cx="80" cy="80" r="3" fill="currentColor"/><circle cx="80" cy="20" r="3" fill="currentColor"/><circle cx="20" cy="80" r="3" fill="currentColor"/></svg>`, // Star
+            18: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M70 50 A 30 30 0 1 1 50 20 A 20 20 0 1 0 70 50" fill="currentColor"/><path d="M10 80 Q 25 60 40 80" stroke="currentColor" fill="none" stroke-width="4"/><path d="M60 80 Q 75 60 90 80" stroke="currentColor" fill="none" stroke-width="4"/></svg>`, // Moon
+            19: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><circle cx="50" cy="50" r="20" fill="currentColor"/><line x1="50" y1="10" x2="50" y2="25" stroke="currentColor" stroke-width="4"/><line x1="50" y1="75" x2="50" y2="90" stroke="currentColor" stroke-width="4"/><line x1="10" y1="50" x2="25" y2="50" stroke="currentColor" stroke-width="4"/><line x1="75" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="4"/><line x1="22" y1="22" x2="32" y2="32" stroke="currentColor" stroke-width="4"/><line x1="78" y1="78" x2="68" y2="68" stroke="currentColor" stroke-width="4"/><line x1="22" y1="78" x2="32" y2="68" stroke="currentColor" stroke-width="4"/><line x1="78" y1="22" x2="68" y2="32" stroke="currentColor" stroke-width="4"/></svg>`, // Sun
+            20: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><path d="M20 20 L60 40 L60 60 L20 80 Z" stroke="currentColor" fill="none" stroke-width="4"/><line x1="60" y1="50" x2="90" y2="50" stroke="currentColor" stroke-width="5"/><path d="M30 50 Q 50 10 70 50" stroke="currentColor" fill="none" stroke-width="3" stroke-dasharray="4 4"/></svg>`, // Judgement
+            21: `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><ellipse cx="50" cy="50" rx="30" ry="40" stroke="currentColor" fill="none" stroke-width="5"/><path d="M45 30 L50 70 L55 30 Z" stroke="currentColor" fill="none" stroke-width="3"/><circle cx="20" cy="20" r="5" fill="currentColor"/><circle cx="80" cy="20" r="5" fill="currentColor"/><circle cx="20" cy="80" r="5" fill="currentColor"/><circle cx="80" cy="80" r="5" fill="currentColor"/></svg>` // World
+        };
+
+        const cardsData = [
+            { id: 0,
+              en: { n: "The Fool", d: "Represents the beginning of a journey. Embrace the unknown with an open heart.", u: "New beginnings, optimism, leap of faith.", r: "Recklessness, fear of the unknown." },
+              gu: { n: "ધ ફૂલ (મૂર્ખ)", d: "આ એક નવી સફરની શરૂઆત દર્શાવે છે. ખુલ્લા હૃદયથી અજાણ્યાનો સ્વીકાર કરો.", u: "નવી શરૂઆત, આશાવાદ, વિશ્વાસની છલાંગ.", r: "બેદરકારી, અજાણ્યાનો ડર." },
+              hi: { n: "द फूल (मूर्ख)", d: "यह एक नई यात्रा की शुरुआत का प्रतिनिधित्व करता है। खुले दिल से अज्ञात को अपनाएं।", u: "नई शुरुआत, आशावाद, विश्वास की छलांग।", r: "लापरवाही, अज्ञात का डर।" },
+              es: { n: "El Loco", d: "Representa el comienzo de un viaje. Abraza lo desconocido con el corazón abierto.", u: "Nuevos comienzos, optimismo, salto de fe.", r: "Imprudencia, miedo a lo desconocido." },
+              fr: { n: "Le Mat", d: "Représente le début d'un voyage. Embrassez l'inconnu avec un cœur ouvert.", u: "Nouveaux départs, optimisme, saut de foi.", r: "Imprudence, peur de l'inconnu." }
+            },
+            { id: 1,
+              en: { n: "The Magician", d: "You have the tools to succeed. Turn dreams into reality.", u: "Manifestation, resourcefulness, power.", r: "Manipulation, poor planning." },
+              gu: { n: "ધ મેજિશિયન", d: "તમારી પાસે સફળ થવાના સાધનો છે. સપનાઓને વાસ્તવિકતામાં ફેરવો.", u: "પ્રગટીકરણ, કોઠાસૂઝ, શક્તિ.", r: "હેરાફેરી, નબળું આયોજન." },
+              hi: { n: "द मैजिशियन", d: "आपके पास सफल होने के उपकरण हैं। सपनों को हकीकत में बदलें।", u: "अभिव्यक्ति, कुशलता, शक्ति।", r: "हेरफेर, खराब योजना।" },
+              es: { n: "El Mago", d: "Tienes las herramientas para tener éxito. Convierte los sueños en realidad.", u: "Manifestación, ingenio, poder.", r: "Manipulación, mala planificación." },
+              fr: { n: "Le Bateleur", d: "Vous avez les outils pour réussir. Transformez les rêves en réalité.", u: "Manifestation, ingéniosité, pouvoir.", r: "Manipulation, mauvaise planification." }
+            },
+            { id: 2,
+              en: { n: "The High Priestess", d: "Listen to your inner voice. Trust your instincts.", u: "Intuition, sacred knowledge, subconscious.", r: "Secrets, disconnected from intuition." },
+              gu: { n: "ધ હાઇ પ્રિસ્ટિસ", d: "તમારા આંતરિક અવાજને સાંભળો. તમારી વૃત્તિ પર વિશ્વાસ કરો.", u: "અંતર્જ્ઞાન, પવિત્ર જ્ઞાન, અર્ધજાગ્રત.", r: "રહસ્યો, અંતર્જ્ઞાનથી અલગ." },
+              hi: { n: "द हाई प्रीस्टेस", d: "अपनी अंतरात्मा की आवाज सुनें। अपनी प्रवृत्ति पर भरोसा करें।", u: "अंतर्ज्ञान, पवित्र ज्ञान, अवचेतन।", r: "रहस्य, अंतर्ज्ञान से कटा हुआ।" },
+              es: { n: "La Sacerdotisa", d: "Escucha tu voz interior. Confía en tus instintos.", u: "Intuición, conocimiento sagrado, subconsciente.", r: "Secretos, desconectado de la intuición." },
+              fr: { n: "La Papesse", d: "Écoutez votre voix intérieure. Faites confiance à votre instinct.", u: "Intuition, savoir sacré, subconscient.", r: "Secrets, déconnexion de l'intuition." }
+            },
+            { id: 3,
+              en: { n: "The Empress", d: "A period of growth and nurturing. Connect with nature.", u: "Femininity, nature, nurturing, abundance.", r: "Creative block, dependence." },
+              gu: { n: "ધ એમ્પ્રેસ", d: "વિકાસ અને પોષણનો સમયગાળો. પ્રકૃતિ સાથે જોડાઓ.", u: "સ્ત્રીત્વ, પ્રકૃતિ, પોષણ, વિપુલતા.", r: "સર્જનાત્મક અવરોધ, નિર્ભરતા." },
+              hi: { n: "द एम्प्रेस", d: "विकास और पोषण की अवधि। प्रकृति से जुड़ें।", u: "स्त्रीत्व, प्रकृति, पोषण, प्रचुरता।", r: "रचनात्मक ब्लॉक, निर्भरता।" },
+              es: { n: "La Emperatriz", d: "Un período de crecimiento y crianza. Conéctate con la naturaleza.", u: "Feminidad, naturaleza, crianza, abundancia.", r: "Bloqueo creativo, dependencia." },
+              fr: { n: "L'Impératrice", d: "Une période de croissance et de soins. Connectez-vous avec la nature.", u: "Féminité, nature, soins, abondance.", r: "Blocage créatif, dépendance." }
+            },
+            { id: 4,
+              en: { n: "The Emperor", d: "Stability and order. Provides a solid foundation.", u: "Authority, structure, a father figure.", r: "Domination, excessive control." },
+              gu: { n: "ધ એમ્પરર", d: "સ્થિરતા અને વ્યવસ્થા. એક મજબૂત પાયો પૂરો પાડે છે.", u: "સત્તા, માળખું, પિતાની આકૃતિ.", r: "વર્ચસ્વ, અતિશય નિયંત્રણ." },
+              hi: { n: "द एम्परर", d: "स्थिरता और व्यवस्था। एक ठोस आधार प्रदान करता है।", u: "अधिकार, संरचना, पिता तुल्य।", r: "प्रभुत्व, अत्यधिक नियंत्रण।" },
+              es: { n: "El Emperador", d: "Estabilidad y orden. Proporciona una base sólida.", u: "Autoridad, estructura, figura paterna.", r: "Dominación, control excesivo." },
+              fr: { n: "L'Empereur", d: "Stabilité et ordre. Fournit une base solide.", u: "Autorité, structure, figure paternelle.", r: "Domination, contrôle excessif." }
+            },
+            { id: 5,
+              en: { n: "The Hierophant", d: "Follow established traditions or seek a mentor.", u: "Spiritual wisdom, conformity, tradition.", r: "Personal beliefs, challenging status quo." },
+              gu: { n: "ધ હાયરોફન્ટ", d: "સ્થાપિત પરંપરાઓને અનુસરો અથવા માર્ગદર્શક શોધો.", u: "આધ્યાત્મિક શાણપણ, અનુરૂપતા, પરંપરા.", r: "વ્યક્તિગત માન્યતાઓ, સ્થિતિને પડકારવી." },
+              hi: { n: "द हायरोफैंट", d: "स्थापित परंपराओं का पालन करें या गुरु की तलाश करें।", u: "आध्यात्मिक ज्ञान, अनुरूपता, परंपरा।", r: "व्यक्तिगत मान्यताएं, यथास्थिति को चुनौती।" },
+              es: { n: "El Hierofante", d: "Sigue las tradiciones establecidas o busca un mentor.", u: "Sabiduría espiritual, conformidad, tradición.", r: "Creencias personales, desafiar el status quo." },
+              fr: { n: "Le Pape", d: "Suivez les traditions établies ou cherchez un mentor.", u: "Sagesse spirituelle, conformité, tradition.", r: "Croyances personnelles, remise en question." }
+            },
+            { id: 6,
+              en: { n: "The Lovers", d: "A crossroad where moral choices must be made with the heart.", u: "Love, harmony, choices, alignment.", r: "Disharmony, imbalance, bad choices." },
+              gu: { n: "ધ લવર્સ (પ્રેમીઓ)", d: "એક ક્રોસરોડ જ્યાં હૃદયથી નૈતિક પસંદગીઓ થવી જોઈએ.", u: "પ્રેમ, સંવાદિતા, પસંદગીઓ, ગોઠવણી.", r: "અસંમતિ, અસંતુલન, ખરાબ પસંદગીઓ." },
+              hi: { n: "द लवर्स (प्रेमी)", d: "एक चौराहा जहां दिल से नैतिक विकल्प चुने जाने चाहिए।", u: "प्यार, सद्भाव, विकल्प, संरेखण।", r: "विसंगति, असंतुलन, बुरे विकल्प।" },
+              es: { n: "Los Enamorados", d: "Una encrucijada donde las elecciones morales deben hacerse con el corazón.", u: "Amor, armonía, elecciones, alineación.", r: "Desarmonía, desequilibrio, malas elecciones." },
+              fr: { n: "L'Amoureux", d: "Un carrefour où les choix moraux doivent être faits avec le cœur.", u: "Amour, harmonie, choix, alignement.", r: "Désharmonie, déséquilibre, mauvais choix." }
+            },
+            { id: 7,
+              en: { n: "The Chariot", d: "Victory through discipline. Drive forward to reach your goal.", u: "Control, willpower, success, action.", r: "Opposition, lack of direction." },
+              gu: { n: "ધ ચેરિયટ (રથ)", d: "શિસ્ત દ્વારા વિજય. ધ્યેય સુધી પહોંચવા માટે આગળ વધો.", u: "નિયંત્રણ, ઇચ્છાશક્તિ, સફળતા, ક્રિયા.", r: "વિરોધ, દિશાનો અભાવ." },
+              hi: { n: "द चेरियट (रथ)", d: "अनुशासन से विजय। लक्ष्य तक पहुँचने के लिए आगे बढ़ें।", u: "नियंत्रण, इच्छाशक्ति, सफलता, कार्रवाई।", r: "विरोध, दिशा की कमी।" },
+              es: { n: "El Carro", d: "Victoria a través de la disciplina. Avanza para alcanzar tu meta.", u: "Control, fuerza de voluntad, éxito, acción.", r: "Oposición, falta de dirección." },
+              fr: { n: "Le Chariot", d: "Victoire par la discipline. Avancez pour atteindre votre objectif.", u: "Contrôle, volonté, succès, action.", r: "Opposition, manque de direction." }
+            },
+            { id: 8,
+              en: { n: "Strength", d: "Tame the beast with compassion rather than brute force.", u: "Strength, courage, compassion.", r: "Self-doubt, low energy." },
+              gu: { n: "સ્ટ્રેન્થ (શક્તિ)", d: "કઠોર બળને બદલે કરુણાથી પશુને કાબૂમાં કરો.", u: "શક્તિ, હિંમત, કરુણા.", r: "સ્વ-શંકા, ઓછી ઉર્જા." },
+              hi: { n: "स्ट्रेंथ (शक्ति)", d: "क्रूर बल के बजाय करुणा से जानवर को वश में करें।", u: "ताकत, साहस, करुणा।", r: "आत्म-संदेह, कम ऊर्जा।" },
+              es: { n: "La Fuerza", d: "Domestica a la bestia con compasión en lugar de fuerza bruta.", u: "Fuerza, coraje, compasión.", r: "Duda de uno mismo, baja energía." },
+              fr: { n: "La Force", d: "Apprivoisez la bête avec compassion plutôt qu'avec la force brute.", u: "Force, courage, compassion.", r: "Doute de soi, faible énergie." }
+            },
+            { id: 9,
+              en: { n: "The Hermit", d: "Step away from the noise to find answers within.", u: "Soul-searching, introspection, inner guidance.", r: "Isolation, loneliness, withdrawal." },
+              gu: { n: "ધ હર્મિટ (સન્યાસી)", d: "અંદરના જવાબો શોધવા માટે ઘોંઘાટથી દૂર જાઓ.", u: "આત્મશોધ, આત્મનિરીક્ષણ, આંતરિક માર્ગદર્શન.", r: "અલગતા, એકલતા, પીછેહઠ." },
+              hi: { n: "द हर्मिट (संन्यासी)", d: "भीतर के उत्तर खोजने के लिए शोर से दूर कदम रखें।", u: "आत्म-खोज, आत्मनिरीक्षण, आंतरिक मार्गदर्शन।", r: "अलगाव, अकेलापन, वापसी।" },
+              es: { n: "El Ermitaño", d: "Aléjate del ruido para encontrar respuestas en tu interior.", u: "Búsqueda del alma, introspección, guía interior.", r: "Aislamiento, soledad, retraimiento." },
+              fr: { n: "L'Ermite", d: "Éloignez-vous du bruit pour trouver des réponses en vous.", u: "Recherche de l'âme, introspection, guide intérieur.", r: "Isolement, solitude, repli." }
+            },
+            { id: 10,
+              en: { n: "Wheel of Fortune", d: "Life is full of unexpected changes and cycles.", u: "Good luck, karma, destiny, turning point.", r: "Bad luck, resistance to change." },
+              gu: { n: "વ્હીલ ઓફ ફોર્ચ્યુન", d: "જીવન અણધાર્યા ફેરફારો અને ચક્રોથી ભરેલું છે.", u: "સારા નસીબ, કર્મ, નિયતિ, વળાંક.", r: "ખરાબ નસીબ, પરિવર્તનનો પ્રતિકાર." },
+              hi: { n: "व्हील ऑफ फॉर्च्यून", d: "जीवन अप्रत्याशित परिवर्तनों और चक्रों से भरा है।", u: "सौभाग्य, कर्म, भाग्य, मोड़।", r: "दुर्भाग्य, परिवर्तन का विरोध।" },
+              es: { n: "La Rueda de la Fortuna", d: "La vida está llena de cambios y ciclos inesperados.", u: "Buena suerte, karma, destino, punto de inflexión.", r: "Mala suerte, resistencia al cambio." },
+              fr: { n: "La Roue de Fortune", d: "La vie est pleine de changements et de cycles inattendus.", u: "Bonne chance, karma, destin, tournant.", r: "Malchance, résistance au changement." }
+            },
+            { id: 11,
+              en: { n: "Justice", d: "Decisions will be made with fairness and objectivity.", u: "Justice, fairness, truth, law.", r: "Unfairness, lack of accountability." },
+              gu: { n: "જસ્ટિસ (ન્યાય)", d: "નિર્ણયો ન્યાયી અને નિરપેક્ષતાથી લેવામાં આવશે.", u: "ન્યાય, નિષ્પક્ષતા, સત્ય, કાયદો.", r: "અન્યાય, જવાબદારીનો અભાવ." },
+              hi: { n: "जस्टिस (न्याय)", d: "निर्णय निष्पक्षता और वस्तुनिष्ठता के साथ लिए जाएंगे।", u: "न्याय, निष्पक्षता, सत्य, कानून।", r: "अनुचितता, जवाबदेही की कमी।" },
+              es: { n: "La Justicia", d: "Las decisiones se tomarán con justicia y objetividad.", u: "Justicia, equidad, verdad, ley.", r: "Injusticia, falta de responsabilidad." },
+              fr: { n: "La Justice", d: "Les décisions seront prises avec équité et objectivité.", u: "Justice, équité, vérité, loi.", r: "Injustice, manque de responsabilité." }
+            },
+            { id: 12,
+              en: { n: "The Hanged Man", d: "Suspend action to gain a new perspective.", u: "Pause, surrender, letting go.", r: "Delays, resistance, indecision." },
+              gu: { n: "ધ હેંગ્ડ મેન", d: "નવો દ્રષ્ટિકોણ મેળવવા માટે ક્રિયાને સ્થગિત કરો.", u: "વિરામ, શરણાગતિ, છોડી દેવું.", r: "વિલંબ, પ્રતિકાર, અનિર્ણાયકતા." },
+              hi: { n: "द हैंग्ड मैन", d: "नया दृष्टिकोण प्राप्त करने के लिए कार्रवाई को निलंबित करें।", u: "विराम, आत्मसमर्पण, जाने देना।", r: "देरी, प्रतिरोध, अनिर्णय।" },
+              es: { n: "El Colgado", d: "Suspende la acción para ganar una nueva perspectiva.", u: "Pausa, rendición, dejar ir.", r: "Retrasos, resistencia, indecisión." },
+              fr: { n: "Le Pendu", d: "Suspendez l'action pour acquérir une nouvelle perspective.", u: "Pause, abandon, lâcher prise.", r: "Retards, résistance, indécision." }
+            },
+            { id: 13,
+              en: { n: "Death", d: "The end of a cycle. Embrace profound transformation.", u: "Endings, change, transformation.", r: "Resistance to change, fear." },
+              gu: { n: "ડેથ (મૃત્યુ)", d: "એક ચક્રનો અંત. ગહન પરિવર્તનને સ્વીકારો.", u: "અંત, પરિવર્તન, રૂપાંતર.", r: "પરિવર્તનનો પ્રતિકાર, ડર." },
+              hi: { n: "डेथ (मृत्यु)", d: "एक चक्र का अंत। गहन परिवर्तन को अपनाएं।", u: "अंत, परिवर्तन, रूपांतरण।", r: "परिवर्तन का विरोध, भय।" },
+              es: { n: "La Muerte", d: "El fin de un ciclo. Abraza una profunda transformación.", u: "Finales, cambio, transformación.", r: "Resistencia al cambio, miedo." },
+              fr: { n: "La Mort", d: "La fin d'un cycle. Embrassez une profonde transformation.", u: "Fins, changement, transformation.", r: "Résistance au changement, peur." }
+            },
+            { id: 14,
+              en: { n: "Temperance", d: "Blend opposing forces smoothly to create harmony.", u: "Balance, moderation, patience.", r: "Imbalance, excess, self-healing." },
+              gu: { n: "ટેમ્પરન્સ (સંયમ)", d: "સંવાદિતા બનાવવા માટે વિરોધી શક્તિઓને સરળતાથી મિશ્રિત કરો.", u: "સંતુલન, મધ્યસ્થતા, ધીરજ.", r: "અસંતુલન, અતિરેક, સ્વ-ઉપચાર." },
+              hi: { n: "टेम्परेंस (संयम)", d: "सद्भाव बनाने के लिए विरोधी शक्तियों को सुचारू रूप से मिलाएं।", u: "संतुलन, संयम, धैर्य।", r: "असंतुलन, अधिकता, आत्म-चिकित्सा।" },
+              es: { n: "La Templanza", d: "Mezcla fuerzas opuestas suavemente para crear armonía.", u: "Equilibrio, moderación, paciencia.", r: "Desequilibrio, exceso, autosanación." },
+              fr: { n: "La Tempérance", d: "Mélangez les forces opposées en douceur pour créer l'harmonie.", u: "Équilibre, modération, patience.", r: "Déséquilibre, excès, auto-guérison." }
+            },
+            { id: 15,
+              en: { n: "The Devil", d: "Confront your shadow side and unhealthy attachments.", u: "Addiction, restriction, materialism.", r: "Releasing limiting beliefs, detachment." },
+              gu: { n: "ધ ડેવિલ (શેતાન)", d: "તમારી ખરાબ બાજુ અને અસ્વસ્થ જોડાણોનો સામનો કરો.", u: "વ્યસન, પ્રતિબંધ, ભૌતિકવાદ.", r: "મર્યાદિત માન્યતાઓ મુક્ત કરવી, અલગતા." },
+              hi: { n: "द डेविल (शैतान)", d: "अपने छाया पक्ष और अस्वस्थ अनुलग्नकों का सामना करें।", u: "लत, प्रतिबंध, भौतिकवाद।", r: "सीमित मान्यताओं को जारी करना, वैराग्य।" },
+              es: { n: "El Diablo", d: "Enfrenta tu lado oscuro y apegos poco saludables.", u: "Adicción, restricción, materialismo.", r: "Liberación de creencias limitantes, desapego." },
+              fr: { n: "Le Diable", d: "Affrontez votre côté sombre et vos attachements malsains.", u: "Dépendance, restriction, matérialisme.", r: "Libération de croyances limitantes, détachement." }
+            },
+            { id: 16,
+              en: { n: "The Tower", d: "A shocking revelation clears the path for truth.", u: "Sudden change, upheaval, chaos.", r: "Fear of change, averting disaster." },
+              gu: { n: "ધ ટાવર", d: "એક આઘાતજનક ઘટસ્ફોટ સત્ય માટેનો માર્ગ સાફ કરે છે.", u: "અચાનક ફેરફાર, ઉથલપાથલ, અરાજકતા.", r: "પરિવર્તનનો ડર, આપત્તિ ટાળવી." },
+              hi: { n: "द टावर", d: "एक चौंकाने वाला रहस्योद्घाटन सत्य का मार्ग प्रशस्त करता है।", u: "अचानक परिवर्तन, उथल-पुथल, अराजकता।", r: "परिवर्तन का डर, आपदा से बचना।" },
+              es: { n: "La Torre", d: "Una revelación impactante despeja el camino hacia la verdad.", u: "Cambio repentino, agitación, caos.", r: "Miedo al cambio, evitar el desastre." },
+              fr: { n: "La Maison Dieu", d: "Une révélation choquante ouvre la voie à la vérité.", u: "Changement soudain, bouleversement, chaos.", r: "Peur du changement, éviter le désastre." }
+            },
+            { id: 17,
+              en: { n: "The Star", d: "A period of healing, inspiration, and boundless hope.", u: "Hope, faith, renewal, spirituality.", r: "Lack of faith, despair, disconnection." },
+              gu: { n: "ધ સ્ટાર (તારો)", d: "હીલિંગ, પ્રેરણા અને અમર્યાદ આશાનો સમયગાળો.", u: "આશા, વિશ્વાસ, નવીકરણ, આધ્યાત્મિકતા.", r: "વિશ્વાસનો અભાવ, નિરાશા, જોડાણ તૂટવું." },
+              hi: { n: "द स्टार (तारा)", d: "चिकित्सा, प्रेरणा और असीम आशा की अवधि।", u: "आशा, विश्वास, नवीनीकरण, आध्यात्मिकता।", r: "विश्वास की कमी, निराशा, अलगाव।" },
+              es: { n: "La Estrella", d: "Un período de curación, inspiración y esperanza ilimitada.", u: "Esperanza, fe, renovación, espiritualidad.", r: "Falta de fe, desesperación, desconexión." },
+              fr: { n: "L'Étoile", d: "Une période de guérison, d'inspiration et d'espoir sans limites.", u: "Espoir, foi, renouveau, spiritualité.", r: "Manque de foi, désespoir, déconnexion." }
+            },
+            { id: 18,
+              en: { n: "The Moon", d: "Navigate the subconscious by relying on intuition.", u: "Illusion, fear, anxiety, intuition.", r: "Release of fear, inner confusion." },
+              gu: { n: "ધ મૂન (ચંદ્ર)", d: "અંતર્જ્ઞાન પર આધાર રાખીને અર્ધજાગ્રતમાં નેવિગેટ કરો.", u: "ભ્રમ, ડર, ચિંતા, અંતર્જ્ઞાન.", r: "ડરથી મુક્તિ, આંતરિક મૂંઝવણ." },
+              hi: { n: "द मून (चंद्रमा)", d: "अंतर्ज्ञान पर भरोसा करके अवचेतन को नेविगेट करें।", u: "भ्रम, भय, चिंता, अंतर्ज्ञान।", r: "भय की रिहाई, आंतरिक भ्रम।" },
+              es: { n: "La Luna", d: "Navega por el subconsciente confiando en la intuición.", u: "Ilusión, miedo, ansiedad, intuición.", r: "Liberación del miedo, confusión interior." },
+              fr: { n: "La Lune", d: "Naviguez dans le subconscient en vous fiant à l'intuition.", u: "Illusion, peur, anxiété, intuition.", r: "Libération de la peur, confusion intérieure." }
+            },
+            { id: 19,
+              en: { n: "The Sun", d: "Brings warmth and illuminates your path to victory.", u: "Positivity, fun, warmth, success.", r: "Inner child, feeling down." },
+              gu: { n: "ધ સન (સૂર્ય)", d: "હૂંફ લાવે છે અને વિજયના માર્ગને પ્રકાશિત કરે છે.", u: "હકારાત્મકતા, આનંદ, હૂંફ, સફળતા.", r: "આંતરિક બાળક, નિરાશા અનુભવવી." },
+              hi: { n: "द सन (सूर्य)", d: "गर्मी लाता है और जीत के मार्ग को रोशन करता है।", u: "सकारात्मकता, मज़ा, गर्मी, सफलता।", r: "आंतरिक बच्चा, उदास महसूस करना।" },
+              es: { n: "El Sol", d: "Trae calidez e ilumina tu camino hacia la victoria.", u: "Positividad, diversión, calidez, éxito.", r: "Niño interior, sentirse deprimido." },
+              fr: { n: "Le Soleil", d: "Apporte chaleur et illumine votre chemin vers la victoire.", u: "Positivité, plaisir, chaleur, succès.", r: "Enfant intérieur, se sentir abattu." }
+            },
+            { id: 20,
+              en: { n: "Judgement", d: "Rise up to a higher level and answer your calling.", u: "Judgement, rebirth, inner calling.", r: "Self-doubt, inner critic." },
+              gu: { n: "જજમેન્ટ (નિર્ણય)", d: "ઉચ્ચ સ્તર પર જાઓ અને તમારા આંતરિક અવાજનો જવાબ આપો.", u: "નિર્ણય, પુનર્જન્મ, આંતરિક કોલ.", r: "સ્વ-શંકા, આંતરિક ટીકાકાર." },
+              hi: { n: "जजमेंट (निर्णय)", d: "उच्च स्तर पर उठें और अपनी आंतरिक पुकार का उत्तर दें।", u: "निर्णय, पुनर्जन्म, आंतरिक पुकार।", r: "आत्म-संदेह, आंतरिक आलोचक।" },
+              es: { n: "El Juicio", d: "Elévate a un nivel superior y responde a tu llamado.", u: "Juicio, renacimiento, llamado interior.", r: "Duda de uno mismo, crítico interior." },
+              fr: { n: "Le Jugement", d: "Élevez-vous à un niveau supérieur et répondez à votre appel.", u: "Jugement, renaissance, appel intérieur.", r: "Doute de soi, critique intérieur." }
+            },
+            { id: 21,
+              en: { n: "The World", d: "A state of wholeness, accomplishment, and understanding.", u: "Completion, integration, accomplishment.", r: "Seeking closure, short-cuts, delays." },
+              gu: { n: "ધ વર્લ્ડ (વિશ્વ)", d: "પૂર્ણતા, સિદ્ધિ અને સમજણની સ્થિતિ.", u: "પૂર્ણતા, એકીકરણ, સિદ્ધિ.", r: "બંધની શોધ, શોર્ટકટ્સ, વિલંબ." },
+              hi: { n: "द वर्ल्ड (दुनिया)", d: "पूर्णता, उपलब्धि और समझ की स्थिति।", u: "पूर्णता, एकीकरण, उपलब्धि।", r: "समापन की तलाश, शॉर्टकट, देरी।" },
+              es: { n: "El Mundo", d: "Un estado de plenitud, logro y comprensión.", u: "Finalización, integración, logro.", r: "Búsqueda de cierre, atajos, retrasos." },
+              fr: { n: "Le Monde", d: "Un état de plénitude, d'accomplissement et de compréhension.", u: "Achèvement, intégration, accomplissement.", r: "Recherche de clôture, raccourcis, retards." }
+            }
+        ];
+
+        const suitsList = [
+            { id: 'W', en: ['Wands', 'action, passion, and creativity'], gu: ['વાન્ડ્સ', 'ક્રિયા, જુસ્સો અને સર્જનાત્મકતા'], hi: ['वांड्स', 'कार्रवाई, जुनून और रचनात्मकता'], es: ['Bastos', 'acción, pasión y creatividad'], fr: ['Bâtons', 'l\'action, la passion et la créativité'], icon: '🔥' },
+            { id: 'C', en: ['Cups', 'emotions, relationships, and intuition'], gu: ['કપ્સ', 'લાગણીઓ, સંબંધો અને અંતર્જ્ઞાન'], hi: ['कप्त', 'भावनाओं, रिश्तों और अंतर्ज्ञान'], es: ['Copas', 'emociones, relaciones e intuición'], fr: ['Coupes', 'les émotions, les relations et l\'intuition'], icon: '🍷' },
+            { id: 'S', en: ['Swords', 'intellect, conflict, and communication'], gu: ['સોર્ડ્સ', 'બુદ્ધિ, સંઘર્ષ અને વાતચીત'], hi: ['स्वॉर्ड्स', 'बुद्धि, संघर्ष और संचार'], es: ['Espadas', 'intelecto, conflicto y comunicación'], fr: ['Épées', 'l\'intellect, les conflits et la communication'], icon: '⚔️' },
+            { id: 'P', en: ['Pentacles', 'material wealth, work, and practicality'], gu: ['પેન્ટેકલ્સ', 'ભૌતિક સંપત્તિ, કાર્ય અને વ્યવહારિકતા'], hi: ['पेंटाकल्स', 'भौतिक धन, कार्य और व्यावहारिकता'], es: ['Oros', 'riqueza material, trabajo y practicidad'], fr: ['Deniers', 'la richesse matérielle, le travail et le sens pratique'], icon: '🪙' }
+        ];
+
+        const ranksList = [
+            { i:1, en:['Ace', 'new beginnings and raw potential', 'new beginnings, potential', 'missed opportunity, delay'], gu:['એકો', 'નવી શરૂઆત અને ક્ષમતા', 'નવી શરૂઆત, સંભવિતતા', 'ચૂકી ગયેલી તક, વિલંબ'], hi:['इक्का', 'नई शुरुआत और क्षमता', 'नई शुरुआत, क्षमता', 'चूका हुआ अवसर, देरी'], es:['As', 'nuevos comienzos y potencial puro', 'nuevos comienzos, potencial', 'oportunidad perdida, retraso'], fr:['As', 'nouveaux départs et potentiel brut', 'nouveaux départs, potentiel', 'opportunité manquée, retard'] },
+            { i:2, en:['Two', 'balance, partnership, and choices', 'balance, partnership', 'imbalance, disconnect'], gu:['ટુ', 'સંતુલન, ભાગીદારી અને પસંદગીઓ', 'સંતુલન, ભાગીદારી', 'અસંતુલન, જોડાણ તૂટવું'], hi:['दो', 'संतुलन, साझेदारी और विकल्प', 'संतुलन, साझेदारी', 'असंतुलन, वियोग'], es:['Dos', 'equilibrio, asociación y opciones', 'equilibrio, asociación', 'desequilibrio, desconexión'], fr:['Deux', 'équilibre, partenariat et choix', 'équilibre, partenariat', 'déséquilibre, déconnexion'] },
+            { i:3, en:['Three', 'growth, expression, and looking ahead', 'growth, foresight', 'delays, obstacles'], gu:['થ્રી', 'વિકાસ, અભિવ્યક્તિ અને આગળ જોવું', 'વિકાસ, ભવિષ્યદ્રષ્ટિ', 'વિલંબ, અવરોધો'], hi:['तीन', 'विकास, अभिव्यक्ति और आगे देखना', 'विकास, दूरदर्शिता', 'देरी, बाधाएं'], es:['Tres', 'crecimiento, expresión y mirar hacia adelante', 'crecimiento, previsión', 'retrasos, obstáculos'], fr:['Trois', 'croissance, expression et vision d\'avenir', 'croissance, prévoyance', 'retards, obstacles'] },
+            { i:4, en:['Four', 'stability, foundations, and celebration', 'stability, celebration', 'instability, fleeting joy'], gu:['ફોર', 'સ્થિરતા, પાયો અને ઉજવણી', 'સ્થિરતા, ઉજવણી', 'અસ્થિરતા, ક્ષણિક આનંદ'], hi:['चार', 'स्थिरता, नींव और उत्सव', 'स्थिरता, उत्सव', 'अस्थिरता, क्षणिक खुशी'], es:['Cuatro', 'estabilidad, cimientos y celebración', 'estabilidad, celebración', 'inestabilidad, alegría fugaz'], fr:['Quatre', 'stabilité, fondations et célébration', 'stabilité, célébration', 'instabilité, joie éphémère'] },
+            { i:5, en:['Five', 'conflict, loss, and challenges', 'conflict, challenge', 'resolution, moving on'], gu:['ફાઇવ', 'સંઘર્ષ, નુકસાન અને પડકારો', 'સંઘર્ષ, પડકાર', 'ઠરાવ, આગળ વધવું'], hi:['पांच', 'संघर्ष, हानि और चुनौतियां', 'संघर्ष, चुनौती', 'समाधान, आगे बढ़ना'], es:['Cinco', 'conflicto, pérdida y desafíos', 'conflicto, desafío', 'resolución, seguir adelante'], fr:['Cinq', 'conflit, perte et défis', 'conflit, défi', 'résolution, aller de l\'avant'] },
+            { i:6, en:['Six', 'harmony, transition, and victory', 'harmony, victory', 'imbalance, lack of recognition'], gu:['સિક્સ', 'સંવાદિતા, પરિવર્તન અને વિજય', 'સંવાદિતા, વિજય', 'અસંતુલન, માન્યતાનો અભાવ'], hi:['छह', 'सद्भाव, परिवर्तन और विजय', 'सद्भाव, विजय', 'असंतुलन, मान्यता की कमी'], es:['Seis', 'armonía, transición y victoria', 'armonía, victoria', 'desequilibrio, falta de reconocimiento'], fr:['Six', 'harmonie, transition et victoire', 'harmonie, victoire', 'déséquilibre, manque de reconnaissance'] },
+            { i:7, en:['Seven', 'perseverance, defense, and reflection', 'perseverance, defense', 'exhaustion, giving up'], gu:['સેવન', 'દ્રઢતા, બચાવ અને પ્રતિબિંબ', 'દ્રઢતા, બચાવ', 'થાક, હાર માનવી'], hi:['सात', 'दृढ़ता, बचाव और प्रतिबिंब', 'दृढ़ता, बचाव', 'थकान, हार मानना'], es:['Siete', 'perseverancia, defensa y reflexión', 'perseverancia, defensa', 'agotamiento, rendirse'], fr:['Sept', 'persévérance, défense et réflexion', 'persévérance, défense', 'épuisement, abandon'] },
+            { i:8, en:['Eight', 'movement, swift action, and change', 'swift action, movement', 'delays, frustration'], gu:['એઇટ', 'ચળવળ, ઝડપી ક્રિયા અને પરિવર્તન', 'ઝડપી ક્રિયા, ચળવળ', 'વિલંબ, નિરાશા'], hi:['आठ', 'आंदोलपन, त्वरित कार्रवाई और परिवर्तन', 'त्वरित कार्रवाई, आंदोलन', 'देरी, निराशा'], es:['Ocho', 'movimiento, acción rápida y cambio', 'acción rápida, movimiento', 'retrasos, frustración'], fr:['Huit', 'mouvement, action rapide et changement', 'action rapide, mouvement', 'retards, frustration'] },
+            { i:9, en:['Nine', 'resilience, near completion, and anxiety', 'resilience, near completion', 'burnout, paranoia'], gu:['નાઇન', 'લવચીકતા, પૂર્ણતાની નજીક અને ચિંતા', 'લવચીકતા, પૂર્ણતાની નજીક', 'થાક, ભય'], hi:['नौ', 'लचीलापन, पूर्णता के करीब और चिंता', 'लचीलापन, पूर्णता के करीब', 'थकावट, व्यामोह'], es:['Nueve', 'resiliencia, casi finalización y ansiedad', 'resiliencia, casi finalización', 'agotamiento, paranoia'], fr:['Neuf', 'résilience, presque terminé et anxiété', 'résilience, presque terminé', 'épuisement professionnel, paranoïa'] },
+            { i:10, en:['Ten', 'completion, burden, and legacy', 'completion, burden', 'failure, avoiding responsibility'], gu:['ટેન', 'પૂર્ણતા, બોજ અને વારસો', 'પૂર્ણતા, બોજ', 'નિષ્ફળતા, જવાબદારી ટાળવી'], hi:['दस', 'पूर्णता, बोझ और विरासत', 'पूर्णता, बोझ', 'विफलता, जिम्मेदारी से बचना'], es:['Diez', 'finalización, carga y legado', 'finalización, carga', 'fracaso, evitar responsabilidades'], fr:['Dix', 'achèvement, fardeau et héritage', 'achèvement, fardeau', 'échec, éviter les responsabilités'] },
+            { i:11, en:['Page', 'messages, curiosity, and new phases', 'curiosity, new message', 'immaturity, bad news'], gu:['પેજ', 'સંદેશાઓ, જિજ્ઞાસા અને નવા તબક્કા', 'જિજ્ઞાસા, નવો સંદેશ', 'અપરિપક્વતા, ખરાબ સમાચાર'], hi:['पेज', 'संदेश, जिज्ञासा और नए चरण', 'जिज्ञासा, नया संदेश', 'अपरिपक्वता, बुरी खबर'], es:['Paje', 'mensajes, curiosidad y nuevas fases', 'curiosidad, nuevo mensaje', 'inmadurez, malas noticias'], fr:['Valet', 'messages, curiosité et nouvelles phases', 'curiosité, nouveau message', 'immaturité, mauvaises nouvelles'] },
+            { i:12, en:['Knight', 'focused energy, action, and extremes', 'focused energy, action', 'impulsiveness, recklessness'], gu:['નાઈટ', 'કેન્દ્રિત ઊર્જા, ક્રિયા અને ચરમસીમા', 'કેન્દ્રિત ઊર્જા, ક્રિયા', 'આવેગ, અવિચારી'], hi:['नाइट', 'केंद्रित ऊर्जा, कार्रवाई और चरम', 'केंद्रित ऊर्जा, कार्रवाई', 'आवेग, लापरवाही'], es:['Caballero', 'energía enfocada, acción y extremos', 'energía enfocada, acción', 'impulsividad, imprudencia'], fr:['Cavalier', 'énergie concentrée, action et extrêmes', 'énergie concentrée, action', 'impulsivité, imprudence'] },
+            { i:13, en:['Queen', 'nurturing, mastery of the internal, and maturity', 'nurturing, mastery', 'smothering, coldness'], gu:['ક્વીન', 'પોષણ, આંતરિક નિપુણતા અને પરિપક્વતા', 'પોષણ, નિપુણતા', 'ગૂંગળામણ, શીતળતા'], hi:['रानी', 'पोषण, आंतरिक महारत और परिपक्वता', 'पोषण, महारत', 'घुटन, शीतलता'], es:['Reina', 'crianza, maestría de lo interno y madurez', 'crianza, maestría', 'asfixia, frialdad'], fr:['Reine', 'nourricier, maîtrise de l\'interne et maturité', 'nourricier, maîtrise', 'étouffement, froideur'] },
+            { i:14, en:['King', 'authority, mastery of the external, and leadership', 'authority, leadership', 'tyranny, manipulation'], gu:['કિંગ', 'સત્તા, બાહ્ય નિપુણતા અને નેતૃત્વ', 'સત્તા, નેતૃત્વ', 'જુલમ, હેરફેર'], hi:['राजा', 'अधिकार, बाहरी महारत और नेतृत्व', 'अधिकार, नेतृत्व', 'अत्याचार, हेरफेर'], es:['Rey', 'autoridad, maestría de lo externo y liderazgo', 'autoridad, liderazgo', 'tiranía, manipulación'], fr:['Roi', 'autorité, maîtrise de l\'externe et leadership', 'autorité, leadership', 'tyrannie, manipulation'] }
+        ];
+
+        let minorCardId = 22;
+        suitsList.forEach(suit => {
+            ranksList.forEach(rank => {
+                const buildName = (r, s, lang) => {
+                    if(lang==='en') return `${r} of ${s}`;
+                    if(lang==='gu') return `${s} નો ${r}`;
+                    if(lang==='hi') return `${s} का ${r}`;
+                    if(lang==='es') return `${r} de ${s}`;
+                    if(lang==='fr') return `${r} de ${s}`;
+                };
+                const buildDesc = (r, s, lang) => {
+                    if(lang==='en') return `Represents ${r} in the realm of ${s}.`;
+                    if(lang==='gu') return `${s} ના ક્ષેત્રમાં ${r} દર્શાવે છે.`;
+                    if(lang==='hi') return `${s} के क्षेत्र में ${r} को दर्शाता है।`;
+                    if(lang==='es') return `Representa ${r} en el ámbito de ${s}.`;
+                    if(lang==='fr') return `Représente ${r} dans le domaine de ${s}.`;
+                };
+                
+                cardsData.push({
+                    id: minorCardId,
+                    en: { n: buildName(rank.en[0], suit.en[0], 'en'), d: buildDesc(rank.en[1], suit.en[1], 'en'), u: rank.en[2], r: rank.en[3] },
+                    gu: { n: buildName(rank.gu[0], suit.gu[0], 'gu'), d: buildDesc(rank.gu[1], suit.gu[1], 'gu'), u: rank.gu[2], r: rank.gu[3] },
+                    hi: { n: buildName(rank.hi[0], suit.hi[0], 'hi'), d: buildDesc(rank.hi[1], suit.hi[1], 'hi'), u: rank.hi[2], r: rank.hi[3] },
+                    es: { n: buildName(rank.es[0], suit.es[0], 'es'), d: buildDesc(rank.es[1], suit.es[1], 'es'), u: rank.es[2], r: rank.es[3] },
+                    fr: { n: buildName(rank.fr[0], suit.fr[0], 'fr'), d: buildDesc(rank.fr[1], suit.fr[1], 'fr'), u: rank.fr[2], r: rank.fr[3] }
+                });
+                
+                let rankSymbol = rank.i;
+                if(rank.i===1) rankSymbol = 'A';
+                if(rank.i===11) rankSymbol = 'P';
+                if(rank.i===12) rankSymbol = 'Kn';
+                if(rank.i===13) rankSymbol = 'Q';
+                if(rank.i===14) rankSymbol = 'K';
+                
+                cardSVGs[minorCardId] = `<svg viewBox="0 0 100 100" class="w-full h-full text-mystic-900"><rect x="5" y="5" width="90" height="90" rx="10" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/><text x="50" y="45" font-family="serif" font-size="30" fill="currentColor" text-anchor="middle" dominant-baseline="middle">${suit.icon}</text><text x="50" y="75" font-family="serif" font-size="24" font-weight="bold" fill="currentColor" text-anchor="middle" dominant-baseline="middle">${rankSymbol}</text></svg>`;
+                
+                minorCardId++;
+            });
+        });
+
+        let currentSpread = 1;
+        let cardsRemaining = 0;
+        let drawnDeck = [];
+        let deckOrder = []; // Array of card objects currently in the fanned deck
+
+        const menuView = document.getElementById('menu-view');
+        const galleryView = document.getElementById('gallery-view');
+        const readingView = document.getElementById('reading-view');
+        const slotsContainer = document.getElementById('slots-container');
+        const cardsToDrawEl = document.getElementById('cards-to-draw');
+        const instructionText = document.getElementById('instruction-text');
+        const resultsContainer = document.getElementById('results-container');
+        const meaningsList = document.getElementById('meanings-list');
+        const spreadContainer = document.getElementById('spread-container');
+        const deckActions = document.getElementById('deck-actions');
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            const t = uiStrings[lang];
+            
+            document.getElementById('ui-title').innerText = t.title;
+            document.getElementById('ui-subtitle').innerText = t.subtitle;
+            document.getElementById('ui-chooseReading').innerText = t.chooseReading;
+            document.getElementById('ui-menuDesc').innerText = t.menuDesc;
+            document.getElementById('ui-dailyDraw').innerText = t.dailyDraw;
+            document.getElementById('ui-dailyDrawDesc').innerText = t.dailyDrawDesc;
+            document.getElementById('ui-pastPresentFuture').innerText = t.pastPresentFuture;
+            document.getElementById('ui-ppfDesc').innerText = t.ppfDesc;
+            document.getElementById('ui-viewCards').innerText = t.viewCards;
+            document.getElementById('ui-galleryTitle').innerText = t.galleryTitle;
+            document.getElementById('ui-backToMenu1').innerText = t.backToMenu;
+            document.getElementById('ui-backToMenu2').innerText = t.backToMenu;
+            document.getElementById('ui-yourReading').innerText = t.yourReading;
+            document.getElementById('ui-newReading').innerText = t.newReading;
+            document.getElementById('ui-shuffleBtn').innerText = t.shuffleBtn;
+            document.getElementById('ui-footer').innerText = t.footer;
+
+            // Re-render gallery if open
+            if(!galleryView.classList.contains('hidden-view')){
+                renderGallery();
+            }
+
+            // Update reading views if active
+            if(!readingView.classList.contains('hidden-view')) {
+                updateInstruction();
+                if(drawnDeck.length > 0) reRenderTranslations();
+            }
+        }
+
+        function reRenderTranslations() {
+            for(let i=0; i<currentSpread; i++) {
+                const slotLabel = document.getElementById(`slot-label-${i}`);
+                if(slotLabel) slotLabel.innerText = getPositionName(i, currentSpread);
+                
+                const slotFace = document.getElementById(`slot-name-${i}`);
+                if(slotFace) {
+                    const d = drawnDeck.find(x => x.slotIndex === i);
+                    if(d) slotFace.innerText = d.card[currentLang].n.split(' (')[0];
+                }
+            }
+            if(!resultsContainer.classList.contains('hidden-view')) {
+                meaningsList.innerHTML = '';
+                showResults(true);
+            }
+        }
+
+        function getPositionName(index, count) {
+            const t = uiStrings[currentLang];
+            if (count === 3) {
+                return index === 0 ? t.posPast : (index === 1 ? t.posPresent : t.posFuture);
+            }
+            return t.posInsight;
+        }
+
+        function openGallery() {
+            menuView.classList.add('hidden-view');
+            galleryView.classList.remove('hidden-view');
+            renderGallery();
+        }
+
+        function closeGallery() {
+            galleryView.classList.add('hidden-view');
+            menuView.classList.remove('hidden-view');
+        }
+
+        function renderGallery() {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = '';
+            const t = uiStrings[currentLang];
+
+            cardsData.forEach(card => {
+                const cData = card[currentLang];
+                const svg = cardSVGs[card.id];
+                const identifier = card.id < 22 ? (card.id === 0 ? '0' : romanize(card.id)) : '';
+                
+                const html = `
+                    <div class="bg-mystic-900/60 border border-mystic-700 p-5 rounded-xl shadow-lg flex flex-col hover:border-mystic-gold/50 transition-colors">
+                        <div class="flex items-center gap-4 mb-4 border-b border-mystic-700/50 pb-4">
+                            <div class="w-16 h-24 bg-white rounded flex items-center justify-center border-2 border-mystic-gold p-1 relative overflow-hidden shrink-0">
+                                <div class="absolute inset-0 p-1">${svg}</div>
+                                <img src="images/card_${card.id}.jpg" class="absolute inset-0 w-full h-full object-cover z-10" onerror="this.style.display='none'" alt="${cData.n}">
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-display font-bold text-mystic-gold">${cData.n}</h3>
+                                <span class="text-xs text-gray-400 font-bold uppercase tracking-wider">${identifier}</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-300 italic mb-3">${cData.d}</p>
+                        <div class="mt-auto space-y-2 text-sm">
+                            <p><span class="text-green-400 font-semibold">${t.meaningUp}</span> <span class="text-gray-200">${cData.u}</span></p>
+                            <p><span class="text-red-400 font-semibold">${t.meaningRev}</span> <span class="text-gray-200">${cData.r}</span></p>
+                        </div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        function startGame(spreadCount) {
+            currentSpread = spreadCount;
+            cardsRemaining = spreadCount;
+            drawnDeck = [];
+            
+            menuView.classList.add('hidden-view');
+            readingView.classList.remove('hidden-view');
+            
+            updateInstruction();
+            setupSlots(spreadCount);
+            resultsContainer.classList.add('hidden-view');
+            meaningsList.innerHTML = '';
+            deckActions.classList.remove('hidden-view');
+            
+            initializeDeck();
+        }
+
+        function updateInstruction() {
+            const t = uiStrings[currentLang];
+            if(cardsRemaining > 0) {
+                instructionText.innerHTML = t.drawInstruction.replace('{n}', cardsRemaining);
+            } else {
+                instructionText.innerHTML = t.revealing;
+            }
+        }
+
+        function setupSlots(count) {
+            slotsContainer.innerHTML = '';
+            for (let i = 0; i < count; i++) {
+                const label = getPositionName(i, count);
+                const slotHTML = `
+                    <div class="flex flex-col items-center">
+                        <span id="slot-label-${i}" class="text-sm text-mystic-lightGold mb-2 font-display tracking-widest uppercase opacity-70">${label}</span>
+                        <div id="slot-${i}" class="w-24 sm:w-32 h-36 sm:h-48 border-2 border-dashed border-mystic-700 rounded-xl bg-mystic-900/30 flex items-center justify-center relative perspective">
+                        </div>
+                    </div>
+                `;
+                slotsContainer.insertAdjacentHTML('beforeend', slotHTML);
+            }
+        }
+
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function initializeDeck() {
+            deckOrder = shuffleArray([...cardsData]); // Copy and shuffle
+            renderFannedDeck();
+        }
+
+        function renderFannedDeck() {
+            spreadContainer.innerHTML = '';
+            const total = deckOrder.length;
+            
+            // Generate DOM elements
+            deckOrder.forEach((card, index) => {
+                const el = document.createElement('div');
+                el.className = 'spread-card card-inner';
+                
+                // Card Back UI
+                el.innerHTML = `
+                    <div class="card-back shadow-md border-mystic-gold/80" style="border-width: 1px;">
+                        <span class="text-xl text-mystic-gold opacity-50 absolute">✧</span>
+                    </div>
+                `;
+                
+                // Calculate position for a fanned arc of 78 cards
+                let angle = -45 + (90 / (total - 1)) * index;
+                let maxSpread = window.innerWidth < 600 ? 160 : 350; 
+                let xOffset = -maxSpread + ((maxSpread * 2) / (total - 1)) * index;
+                let normalizedX = (index / (total - 1)) * 2 - 1;
+                let yOffset = (normalizedX * normalizedX) * 40; 
+
+                el.style.transform = `translateX(${xOffset}px) translateY(${yOffset}px) rotate(${angle}deg)`;
+                el.dataset.baseTransform = el.style.transform;
+                el.dataset.cardId = card.id;
+                
+                el.onclick = () => pickCardFromSpread(el, card);
+                spreadContainer.appendChild(el);
+            });
+        }
+
+        function shuffleDeckAnimation() {
+            if (cardsRemaining === 0) return;
+            
+            spreadContainer.classList.add('shuffling');
+            const t = uiStrings[currentLang];
+            document.getElementById('ui-shuffleBtn').innerText = t.title === "रહસ્યમય ટેરોટ" ? "પીસી રહ્યા છીએ..." : "Shuffling...";
+
+            setTimeout(() => {
+                deckOrder = shuffleArray([...deckOrder]);
+                renderFannedDeck(); // Re-render in new order but still in shuffling state
+                
+                setTimeout(() => {
+                    spreadContainer.classList.remove('shuffling');
+                    document.getElementById('ui-shuffleBtn').innerText = t.shuffleBtn;
+                }, 50); // Small delay to allow CSS to register the new transform
+            }, 500); // Wait for them to gather to center
+        }
+
+        function pickCardFromSpread(cardElement, cardData) {
+            if (cardsRemaining === 0) return;
+            if (cardElement.classList.contains('drawn')) return;
+
+            // Mark visually drawn from spread
+            cardElement.classList.add('drawn');
+
+            let isReversed = Math.random() < 0.2; // 20% chance of reversal
+            let slotIndex = currentSpread - cardsRemaining;
+            
+            drawnDeck.push({
+                card: cardData,
+                reversed: isReversed,
+                slotIndex: slotIndex
+            });
+
+            cardsRemaining--;
+            updateInstruction();
+
+            renderCardInSlot(slotIndex, cardData, isReversed);
+
+            if (cardsRemaining === 0) {
+                deckActions.classList.add('hidden-view');
+                setTimeout(() => showResults(false), 1200);
+            }
+        }
+
+        function renderCardInSlot(slotIndex, cardData, isReversed) {
+            const slot = document.getElementById(`slot-${slotIndex}`);
+            slot.classList.remove('border-dashed', 'border-mystic-700', 'bg-mystic-900/30', 'border-2');
+            
+            const identifier = cardData.id < 22 ? (cardData.id === 0 ? '0' : romanize(cardData.id)) : '';
+            const cardName = cardData[currentLang].n.split(' (')[0];
+            const svgIcon = cardSVGs[cardData.id];
+
+            const cardHTML = `
+                <div class="card-container w-full h-full ${isReversed ? 'reversed-card' : ''}">
+                    <div class="card-inner" style="transition: transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                        <div class="card-back"></div>
+                        <div class="card-front relative p-1 sm:p-2 overflow-hidden bg-white rounded-xl">
+                            <div class="absolute inset-1 sm:inset-2 border border-mystic-900/20 rounded-lg pointer-events-none z-20"></div>
+                            
+                            <div class="card-content-wrapper relative z-0 h-full flex flex-col items-center justify-between">
+                                <div id="slot-name-${slotIndex}" class="text-[0.55rem] sm:text-[0.65rem] leading-tight font-display font-bold text-mystic-900 mb-1 uppercase text-center min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center border-b border-gray-300 w-full pb-1">
+                                    ${cardName}
+                                </div>
+                                <div class="w-12 h-12 sm:w-16 sm:h-16 my-auto text-mystic-900 flex items-center justify-center">
+                                    ${svgIcon}
+                                </div>
+                                <div class="text-[0.55rem] sm:text-[0.65rem] text-mystic-700 mt-1 text-center uppercase tracking-wider font-bold">
+                                    ${identifier}
+                                </div>
+                            </div>
+                            
+                            <img src="images/card_${cardData.id}.jpg" class="absolute inset-0 w-full h-full object-cover z-10 rounded-lg" onerror="this.style.display='none'" alt="Tarot Card">
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            slot.innerHTML = cardHTML;
+
+            // Trigger flip animation after small delay
+            setTimeout(() => {
+                slot.querySelector('.card-container').classList.add('flipped');
+            }, 100);
+        }
+
+        function romanize(num) {
+            if (isNaN(num)) return NaN;
+            let digits = String(+num).split(""),
+                key = ["","C","CC","CCC","CD","D","DC","DCC","DCCC","CM",
+                       "","X","XX","XXX","XL","L","LX","LXX","LXXX","XC",
+                       "","I","II","III","IV","V","VI","VII","VIII","IX"],
+                roman = "", i = 3;
+            while (i--) roman = (key[+digits.pop() + (i * 10)] || "") + roman;
+            return Array(+digits.join("") + 1).join("M") + roman;
+        }
+
+        function showResults(skipScroll) {
+            const t = uiStrings[currentLang];
+            instructionText.innerHTML = t.scrollDown;
+            instructionText.classList.remove('animate-pulse');
+            
+            resultsContainer.classList.remove('hidden-view');
+            resultsContainer.classList.add('fade-in');
+
+            drawnDeck.forEach((drawn) => {
+                const cData = drawn.card[currentLang];
+                const posName = getPositionName(drawn.slotIndex, currentSpread);
+                
+                const stateText = drawn.reversed ? 
+                    `<span class="text-red-400 text-sm sm:text-base ml-2">${t.reversed}</span>` : 
+                    `<span class="text-green-400 text-sm sm:text-base ml-2">${t.upright}</span>`;
+                
+                const keywords = drawn.reversed ? cData.r : cData.u;
+                const svgIcon = cardSVGs[drawn.card.id];
+                
+                const meaningHTML = `
+                    <div class="bg-mystic-900/50 p-4 sm:p-5 rounded-xl border border-mystic-700/50">
+                        <div class="flex items-center gap-3 border-b border-mystic-700 pb-3 mb-3">
+                            <div class="w-14 h-20 bg-white rounded border border-mystic-gold shrink-0 relative overflow-hidden">
+                                <div class="absolute inset-0 p-1 flex items-center justify-center">${svgIcon}</div>
+                                <img src="images/card_${drawn.card.id}.jpg" class="absolute inset-0 w-full h-full object-cover z-10" onerror="this.style.display='none'" alt="Card">
+                            </div>
+                            <div>
+                                <h4 class="text-mystic-lightGold text-xs uppercase tracking-widest">${posName}</h4>
+                                <h3 class="text-lg sm:text-2xl font-display font-bold text-white">${cData.n} ${stateText}</h3>
+                            </div>
+                        </div>
+                        <p class="text-gray-300 italic mb-2 text-sm sm:text-base">"${cData.d}"</p>
+                        <p class="text-mystic-gold font-semibold text-sm sm:text-base">
+                            ${t.keyMeaning} <span class="text-gray-200 font-normal">${keywords}</span>
+                        </p>
+                    </div>
+                `;
+                meaningsList.insertAdjacentHTML('beforeend', meaningHTML);
+            });
+            
+            if(!skipScroll) {
+                setTimeout(() => {
+                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+        }
+
+        function resetGame() {
+            readingView.classList.add('hidden-view');
+            menuView.classList.remove('hidden-view');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Initialize correctly on page load
+        window.onload = function() {
+            changeLanguage(document.getElementById('lang-select').value);
+        }
+    </script>
+</body>
+</html>
